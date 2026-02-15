@@ -56,8 +56,9 @@ class Embedder:
         return _st_model_singleton
 
     def embed(self, texts: list[str], force_sentence_transformers: bool = False) -> list[list[float]]:
-        """텍스트 리스트를 임베딩 벡터로 변환."""
-        if force_sentence_transformers:
+        """텍스트 리스트를 임베딩 벡터로 변환. 설정 또는 인자로 ST 강제 가능."""
+        use_st = force_sentence_transformers or self.settings.force_sentence_transformers
+        if use_st:
             return self._embed_st(texts)
         if self._check_ollama():
             return self._embed_ollama(texts)

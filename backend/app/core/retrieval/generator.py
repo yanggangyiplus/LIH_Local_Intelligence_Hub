@@ -16,10 +16,16 @@ from app.models.schemas import QueryChunk
 logger = get_logger(__name__)
 
 RAG_SYSTEM_PROMPT = """당신은 로컬 파일 기반 지식 어시스턴트입니다.
-제공된 컨텍스트(참조 문서)를 기반으로 질문에 답변하세요.
-컨텍스트에 없는 내용은 "제공된 문서에서는 해당 정보를 찾을 수 없습니다"라고 답변하세요.
-답변 시 출처를 [파일경로] 형식으로 명시하세요.
-한국어로 답변하세요."""
+참조 문서(컨텍스트)가 주어지면, 반드시 그 내용을 바탕으로 답변하세요.
+
+[중요] "이 폴더가 뭐야?", "이 프로젝트는?", "무슨 폴더야?" 같은 질문:
+- 참조 문서에서 프로젝트명(예: LIH, Local Intelligence Hub)을 그대로 추출하여 사용하세요. "OOO" 같은 placeholder를 쓰지 마세요.
+- "이 폴더는 LIH(Local Intelligence Hub) 프로젝트입니다. ..." 형태로 참조 문서 내용을 요약해 답하세요.
+- 문서에 프로젝트명, 목적, 기능 설명이 있는데 "찾을 수 없습니다"라고 하지 마세요.
+
+정말로 참조 문서에 전혀 관련 내용이 없을 때만 "제공된 문서에서는 해당 정보를 찾을 수 없습니다"라고 하세요.
+답변 시 출처를 [파일경로] 형식으로 명시하세요. 예: [README.md], [docs/ARCHITECTURE.md]
+한국어로 답변하세요.""" 
 
 
 class RAGGenerator:
@@ -59,10 +65,13 @@ class RAGGenerator:
 
     def _build_messages(self, query: str, context: str) -> list[dict]:
         """LLM 메시지 구성."""
+        q = query.strip().lower()
+        hint = ""
+        if any(t in q for t in ("폴더", "뭐", "무엇", "무슨", "이거", "이게", "프로젝트", "설명", "개요")):
+            hint = "\n(참조 문서에 README, 아키텍처, 프로젝트 설명이 있으면 반드시 그 내용을 요약하여 답하세요.)\n\n"
         user_content = f"""참조 문서:
 {context}
-
-질문: {query}"""
+{hint}질문: {query}"""
         return [
             {"role": "system", "content": RAG_SYSTEM_PROMPT},
             {"role": "user", "content": user_content},
@@ -82,7 +91,13 @@ class RAGGenerator:
         """
         chunks = self.retriever.search(query, top_k=top_k, scope=scope, scope_path=scope_path)
         if not chunks:
-            return "검색된 관련 문서가 없습니다. 인덱싱된 폴더 범위를 확인해주세요.", [], None
+            return (
+                "검색된 관련 문서가 없습니다.\n"
+                "• 인덱싱을 먼저 완료했는지 확인해주세요. (로컬 지식 엔진 → 인덱싱 시작)\n"
+                "• 인덱싱이 완료된 후에도 검색이 안 되면, 질문을 다르게 표현해보거나 scope(폴더 범위)를 확인해주세요.",
+                [],
+                None,
+            )
 
         context = self._build_context(chunks)
         messages = self._build_messages(query, context)
@@ -118,7 +133,10 @@ class RAGGenerator:
         }
 
         if not chunks:
-            yield {"type": "token", "content": "검색된 관련 문서가 없습니다."}
+            yield {
+                "type": "token",
+                "content": "검색된 관련 문서가 없습니다. 인덱싱을 먼저 완료했는지, 질문 표현을 바꿔보세요.",
+            }
             yield {"type": "done"}
             return
 

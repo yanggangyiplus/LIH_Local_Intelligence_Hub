@@ -35,12 +35,13 @@ export const knowledgeApi = {
   index: (rootPath: string, excludePatterns?: string[]) =>
     api.post('/knowledge/index', { root_path: rootPath, exclude_patterns: excludePatterns }),
   getIndexStatus: (jobId: string) => api.get(`/knowledge/index/${jobId}`),
+  getStats: () => api.get<{ collection_count: number; ready: boolean; error?: string }>('/knowledge/stats'),
   query: (query: string, scope?: string, scopePath?: string, topK?: number) =>
     api.post('/knowledge/query', {
       query,
       scope: scope ?? 'all',
       scope_path: scopePath,
-      top_k: topK ?? 5,
+      top_k: topK ?? 8,
     }),
   search: (query: string, scope?: string, scopePath?: string) =>
     api.post('/knowledge/search', { query, scope, scope_path: scopePath }),

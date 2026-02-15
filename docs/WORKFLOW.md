@@ -91,10 +91,21 @@ curl -X POST http://localhost:8000/api/v1/file-intelligence/scan \
 # RAG 질의
 curl -X POST http://localhost:8000/api/v1/knowledge/query \
   -H "Content-Type: application/json" \
-  -d '{"query": "이 프로젝트의 핵심 기능은?", "scope": "all", "top_k": 5}'
+  -d '{"query": "이 프로젝트의 핵심 기능은?", "scope": "all", "top_k": 8}'
 
 # 학습 요약
 curl -X POST http://localhost:8000/api/v1/study/summary \
   -H "Content-Type: application/json" \
   -d '{"root_path": "/path/to/project", "options": {}}'
 ```
+
+---
+
+## RAG 문제 해결
+
+| 증상 | 원인 | 해결 |
+|------|------|------|
+| "검색된 관련 문서가 없습니다" | 인덱싱 미완료 또는 빈 폴더 | 폴더 선택 후 **인덱싱 시작** 실행, 완료될 때까지 대기 (UI에 진행률 표시) |
+| 임베딩 차원 불일치 오류 | Ollama(768차원)와 sentence-transformers(384차원) 혼용 | `.env`에 `FORCE_SENTENCE_TRANSFORMERS=true` 추가 후 ChromaDB 초기화(`backend/data/chroma` 삭제)하고 재인덱싱 |
+| Ollama 미실행 시 답변 품질 저하 | LLM 호출 실패 | `ollama serve` 실행, `ollama pull llama3.2`로 모델 준비 |
+| 검색 결과가 부족함 | top_k가 작음 | API 요청 시 `top_k: 10` 이상으로 증가 |

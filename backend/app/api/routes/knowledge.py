@@ -8,7 +8,7 @@ from typing import AsyncGenerator
 from fastapi import APIRouter, HTTPException
 from sse_starlette.sse import EventSourceResponse
 
-from app.core.indexing.indexer import KnowledgeIndexer
+from app.core.indexing.indexer import COLLECTION_NAME, KnowledgeIndexer
 from app.core.retrieval.generator import RAGGenerator
 from app.core.retrieval.retriever import Retriever
 from app.models.schemas import IndexRequest, QueryRequest, QueryResponse
@@ -107,6 +107,18 @@ async def query_stream(req: QueryRequest):
             yield {"event": "message", "data": json.dumps(event, ensure_ascii=False)}
 
     return EventSourceResponse(event_generator())
+
+
+@router.get("/stats")
+async def get_knowledge_stats() -> dict:
+    """인덱싱된 문서 수 조회. RAG 사용 전 데이터 존재 여부 확인용."""
+    indexer = KnowledgeIndexer()
+    try:
+        coll = indexer.get_collection(COLLECTION_NAME)
+        count = coll.count()
+        return {"collection_count": count, "ready": count > 0}
+    except Exception as e:
+        return {"collection_count": 0, "ready": False, "error": str(e)}
 
 
 @router.post("/search")

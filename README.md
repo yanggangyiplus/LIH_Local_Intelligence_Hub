@@ -1,4 +1,4 @@
-# Local Intelligence Hub (LIH)
+# Local Intelligence Hub (LIH) 
 
 LIH(Local Intelligence Hub)는 사용자의 로컬 파일 시스템을 직접 인덱싱하여 문서, 프로젝트, 개인 자료를 AI가 이해하고 관리할 수 있도록 설계된 **로컬 우선(Local-first) AI 시스템**입니다.
 

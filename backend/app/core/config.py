@@ -52,6 +52,11 @@ class Settings(BaseSettings):
         default=True,
         description="sentence-transformers를 CPU로 실행 (MPS segfault 방지)",
     )
+    # 인덱스/쿼리 임베딩 모델 일치 강제 (dimension mismatch 방지)
+    force_sentence_transformers: bool = Field(
+        default=False,
+        description="True면 Ollama 대신 항상 sentence-transformers 사용 (일관성 확보)",
+    )
 
     # Indexing
     chunk_size: int = Field(default=512, description="텍스트 청크 크기")

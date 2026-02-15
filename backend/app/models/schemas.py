@@ -140,7 +140,7 @@ class QueryRequest(BaseModel):
     query: str
     scope: str = "all"  # all, folder, project, file
     scope_path: Optional[str] = None
-    top_k: int = 5
+    top_k: int = 8  # 검색 품질 개선을 위해 8개 기본
     include_sources: bool = True
 
 
