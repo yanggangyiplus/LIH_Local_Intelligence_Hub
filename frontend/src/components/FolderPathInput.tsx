@@ -103,7 +103,7 @@ export default function FolderPathInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         disabled={disabled}
-        className={`flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 ${inputClassName}`}
+        className={`flex-1 px-4 py-2 border border-gray-500 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 text-white bg-gray-700 placeholder-gray-400 ${inputClassName}`}
       />
       <input
         ref={fileInputRef}
@@ -120,10 +120,10 @@ export default function FolderPathInput({
         onClick={handlePickClick}
         disabled={disabled || isPicking}
         title="폴더 선택"
-        className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 shrink-0"
+        className="flex items-center gap-2 px-4 py-2 border border-gray-500 rounded-lg text-white bg-gray-700 hover:bg-gray-600 disabled:opacity-50 shrink-0"
       >
         {isPicking ? (
-          <span className="animate-pulse text-sm">선택 중...</span>
+          <span className="animate-pulse text-sm text-white">선택 중...</span>
         ) : (
           <>
             <FolderOpen size={18} />

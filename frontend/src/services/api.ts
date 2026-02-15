@@ -17,7 +17,8 @@ const api = axios.create({
 export const fileIntelligenceApi = {
   scan: (rootPath: string) => api.post('/file-intelligence/scan', { root_path: rootPath }),
   getScan: (jobId: string) => api.get(`/file-intelligence/scan/${jobId}`),
-  plan: (jobId: string) => api.post('/file-intelligence/plan', { job_id: jobId }),
+  plan: (jobId: string, organizeBy = 'content', focus = 'both') =>
+    api.post('/file-intelligence/plan', { job_id: jobId, organize_by: organizeBy, focus }),
   preview: (planId: string, actionIds?: string[]) =>
     api.post('/file-intelligence/preview', { plan_id: planId, action_ids: actionIds ?? [] }),
   apply: (planId: string, actionIds: string[], dryRun: boolean, confirm: boolean) =>

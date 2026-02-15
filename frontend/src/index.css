@@ -7,8 +7,8 @@
   line-height: 1.6;
   font-weight: 400;
   color-scheme: light dark;
-  color: #1a1a2e;
-  background-color: #f8f9fc;
+  color: #ffffff;
+  background-color: #374151;
 }
 
 * {
@@ -26,7 +26,7 @@ body {
 }
 
 a {
-  color: #4361ee;
+  color: #93c5fd;
   text-decoration: none;
 }
 

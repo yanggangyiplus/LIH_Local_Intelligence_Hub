@@ -75,22 +75,22 @@ export default function KnowledgePage() {
   return (
     <div className="space-y-8">
       <header>
-        <h2 className="text-2xl font-bold text-gray-900">로컬 지식 엔진 (RAG)</h2>
-        <p className="text-gray-600 mt-1">
+        <h2 className="text-2xl font-bold text-white">로컬 지식 엔진 (RAG)</h2>
+        <p className="text-gray-300 mt-1">
           인덱싱된 로컬 파일을 기반으로 질문에 답합니다. Ollama LLM이 출처와 함께 답변합니다.
         </p>
       </header>
 
       {error && (
-        <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+        <div className="flex items-center gap-2 p-4 bg-red-900/30 border border-red-600 rounded-lg text-red-200">
           <AlertCircle size={20} />
           <span>{error}</span>
-          <button onClick={() => setError(null)} className="ml-auto text-red-500 hover:underline">닫기</button>
+          <button onClick={() => setError(null)} className="ml-auto text-red-300 hover:underline">닫기</button>
         </div>
       )}
 
-      <section className="bg-white rounded-xl border border-gray-200 p-6">
-        <h3 className="font-semibold text-gray-900 mb-4">인덱싱</h3>
+      <section className="bg-gray-800 rounded-xl border border-gray-600 p-6">
+        <h3 className="font-semibold text-white mb-4">인덱싱</h3>
         <div className="flex gap-4 flex-wrap">
           <div className="flex-1 min-w-[200px]">
             <FolderPathInput
@@ -109,7 +109,7 @@ export default function KnowledgePage() {
           </button>
         </div>
         {isIndexing && (
-          <p className="mt-3 text-sm text-amber-700">
+          <p className="mt-3 text-sm text-amber-300">
             인덱싱 중… 완료될 때까지 기다린 후 질의해주세요.
             {typeof (indexStatus as { progress?: number })?.progress === 'number' && (
               <span> (진행률: {Math.round((indexStatus as { progress?: number }).progress! * 100)}%)</span>
@@ -117,19 +117,19 @@ export default function KnowledgePage() {
           </p>
         )}
         {!hasData && !isIndexing && (
-          <p className="mt-3 text-sm text-amber-700">
+          <p className="mt-3 text-sm text-amber-300">
             인덱싱된 데이터가 없습니다. 폴더를 선택하고 인덱싱을 먼저 진행해주세요.
           </p>
         )}
         {hasData && (
-          <p className="mt-3 text-sm text-green-700">
+          <p className="mt-3 text-sm text-green-300">
             인덱싱 완료. {(stats as { collection_count?: number })?.collection_count ?? 0}개 문서가 검색 가능합니다.
           </p>
         )}
       </section>
 
-      <section className="bg-white rounded-xl border border-gray-200 p-6">
-        <h3 className="font-semibold text-gray-900 mb-4">질의</h3>
+      <section className="bg-gray-800 rounded-xl border border-gray-600 p-6">
+        <h3 className="font-semibold text-white mb-4">질의</h3>
         <div className="flex gap-4">
           <input
             type="text"
@@ -137,7 +137,7 @@ export default function KnowledgePage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && queryMutation.mutate()}
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-white placeholder-gray-400 bg-gray-800"
+            className="flex-1 px-4 py-2 border border-gray-500 rounded-lg focus:ring-2 focus:ring-indigo-500 text-white placeholder-gray-400 bg-gray-700"
           />
           <button
             onClick={() => queryMutation.mutate()}
@@ -150,12 +150,12 @@ export default function KnowledgePage() {
           </button>
         </div>
         {!hasData && !isIndexing && (
-          <p className="mt-3 text-sm text-gray-500">질의하려면 먼저 인덱싱을 완료해주세요.</p>
+          <p className="mt-3 text-sm text-gray-400">질의하려면 먼저 인덱싱을 완료해주세요.</p>
         )}
         {answer && (
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-            <p className="text-sm font-medium text-gray-700 mb-2">답변</p>
-            <p className="text-gray-900 whitespace-pre-wrap">{answer}</p>
+          <div className="mt-6 p-4 bg-gray-700 rounded-lg">
+            <p className="text-sm font-medium text-white mb-2">답변</p>
+            <p className="text-gray-200 whitespace-pre-wrap">{answer}</p>
           </div>
         )}
       </section>

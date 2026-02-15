@@ -26,8 +26,8 @@ function App() {
                   clsx(
                     'flex items-center gap-3 px-4 py-3 rounded-lg transition-colors',
                     isActive
-                      ? 'bg-indigo-100 text-indigo-800'
-                      : 'text-gray-600 hover:bg-gray-100'
+                      ? 'bg-indigo-600 text-white'
+                      : 'text-white hover:bg-gray-700'
                   )
                 }
               >

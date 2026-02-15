@@ -9,7 +9,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException
 
 from app.core.file_intelligence.analyzer import FileAnalyzer
 from app.core.file_intelligence.executor import ReorganizationExecutor
-from app.core.file_intelligence.planner import OrganizationPlanner
+from app.core.file_intelligence.planner import OrganizationPlanner, PlanOptions
 from app.core.file_intelligence.scanner import FileScanner
 from app.models.schemas import (
     ApplyReorganizationRequest,
@@ -62,6 +62,8 @@ async def get_scan_result(job_id: str) -> ScanResult:
 
 class PlanRequest(BaseModel):
     job_id: str
+    organize_by: str = "content"  # content | name | time
+    focus: str = "both"  # names | locations | both
 
 
 @router.post("/plan")
@@ -70,7 +72,8 @@ async def generate_plan(req: PlanRequest) -> ReorganizationPlan:
     if req.job_id not in _scan_cache:
         raise HTTPException(status_code=404, detail="스캔 결과를 찾을 수 없습니다.")
     scan = _scan_cache[req.job_id]
-    planner = OrganizationPlanner(scan)
+    options = PlanOptions(organize_by=req.organize_by, focus=req.focus)
+    planner = OrganizationPlanner(scan, options)
     plan = planner.generate_plan()
     _plan_cache[plan.plan_id] = plan
     return plan
