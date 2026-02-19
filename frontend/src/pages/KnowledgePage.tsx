@@ -34,7 +34,7 @@ export default function KnowledgePage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [lastJobId, setLastJobId] = useState<string | null>(null);
-  const [inputMode, setInputMode] = useState<'upload' | 'folder'>('upload');
+  const [inputMode, setInputMode] = useState<'upload' | 'folder'>('folder');
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -98,7 +98,12 @@ export default function KnowledgePage() {
       const response = await fetch(`${apiBase}/knowledge/query/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: userMsg, scope: 'all', top_k: 8 }),
+        body: JSON.stringify({
+          query: userMsg,
+          scope: indexPath.trim() ? 'folder' : 'all',
+          scope_path: indexPath.trim() || undefined,
+          top_k: 8,
+        }),
       });
 
       if (!response.ok) throw new Error('스트리밍 요청 실패');

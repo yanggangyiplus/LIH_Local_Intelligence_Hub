@@ -1,9 +1,11 @@
 /**
  * 대시보드: 통계 카드, 최근 활동, 빠른 시작 가이드.
  */
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useState } from 'react';
+import toast from 'react-hot-toast';
 import {
   FileSearch,
   BookOpen,
@@ -15,6 +17,11 @@ import {
   Database,
   Brain,
   Shield,
+  Trash2,
+  RotateCcw,
+  X,
+  CheckSquare,
+  Square,
 } from 'lucide-react';
 import { dashboardApi } from '../services/api';
 
@@ -73,14 +80,52 @@ function QuickStartCard({ step, title, desc, icon: Icon, to, delay }: {
 }
 
 export default function DashboardPage() {
+  const queryClient = useQueryClient();
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [clearOptions, setClearOptions] = useState({
+    clear_indexed_files: false,
+    clear_reorganization_logs: false,
+    clear_index_jobs: false,
+    clear_scan_cache: false,
+  });
+
   const { data: stats } = useQuery({
     queryKey: ['dashboardStats'],
     queryFn: async () => (await dashboardApi.stats()).data,
+    refetchInterval: 10000,
   });
 
-  const { data: activityData } = useQuery({
+  const { data: activityData, refetch: refetchActivity } = useQuery({
     queryKey: ['recentActivity'],
     queryFn: async () => (await dashboardApi.recentActivity()).data,
+    refetchInterval: 10000,
+  });
+
+  const clearMutation = useMutation({
+    mutationFn: (options: typeof clearOptions & { clear_all?: boolean }) => dashboardApi.clear(options),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+      refetchActivity();
+      setShowClearModal(false);
+      setClearOptions({
+        clear_indexed_files: false,
+        clear_reorganization_logs: false,
+        clear_index_jobs: false,
+        clear_scan_cache: false,
+      });
+      toast.success('데이터가 초기화되었습니다.');
+    },
+    onError: () => toast.error('초기화 실패'),
+  });
+
+  const deleteActivityMutation = useMutation({
+    mutationFn: ({ type, id }: { type: string; id: string }) => dashboardApi.deleteActivity(type, id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+      refetchActivity();
+      toast.success('활동이 삭제되었습니다.');
+    },
+    onError: () => toast.error('삭제 실패'),
   });
 
   return (
@@ -102,12 +147,24 @@ export default function DashboardPage() {
         </div>
       </motion.div>
 
-      {/* 통계 카드 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={Database} label="인덱싱 문서" value={stats?.indexed_files ?? 0} color="bg-indigo-600/80" delay={0.1} />
-        <StatCard icon={FolderOpen} label="파일 정리" value={stats?.reorganization_count ?? 0} color="bg-purple-600/80" delay={0.15} />
-        <StatCard icon={Activity} label="스캔 횟수" value={stats?.scan_count ?? 0} color="bg-pink-600/80" delay={0.2} />
-        <StatCard icon={Zap} label="AI 분석" value={stats?.ai_queries ?? 0} color="bg-emerald-600/80" delay={0.25} />
+      {/* 통계 카드 + 초기화 버튼 */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-white px-1">통계</h2>
+          <button
+            onClick={() => setShowClearModal(true)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 text-red-400 text-sm transition-colors"
+          >
+            <RotateCcw size={14} />
+            초기화
+          </button>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard icon={Database} label="인덱싱 문서" value={stats?.indexed_files ?? 0} color="bg-indigo-600/80" delay={0.1} />
+          <StatCard icon={FolderOpen} label="파일 정리" value={stats?.reorganization_count ?? 0} color="bg-purple-600/80" delay={0.15} />
+          <StatCard icon={Activity} label="스캔 횟수" value={stats?.scan_count ?? 0} color="bg-pink-600/80" delay={0.2} />
+          <StatCard icon={Zap} label="AI 분석" value={stats?.ai_queries ?? 0} color="bg-emerald-600/80" delay={0.25} />
+        </div>
       </div>
 
       {/* 빠른 시작 + 최근 활동 */}
@@ -140,13 +197,24 @@ export default function DashboardPage() {
                   initial={{ opacity: 0, x: 10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.3 + i * 0.05 }}
-                  className="flex items-center gap-3 py-2 border-b border-white/5 last:border-0"
+                  className="flex items-center gap-3 py-2 border-b border-white/5 last:border-0 group"
                 >
                   <div className={`w-2 h-2 rounded-full shrink-0 ${a.type === 'indexing' ? 'bg-indigo-400' : 'bg-purple-400'}`} />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm text-white truncate">{a.description}</p>
                     <p className="text-xs text-gray-500">{a.created_at?.slice(0, 16)?.replace('T', ' ')}</p>
                   </div>
+                  <button
+                    onClick={() => {
+                      if (confirm('이 활동을 삭제하시겠습니까?')) {
+                        deleteActivityMutation.mutate({ type: a.type, id: a.id });
+                      }
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-1.5 rounded hover:bg-red-600/20 text-red-400 transition-all"
+                    title="삭제"
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </motion.div>
               ))
             ) : (
@@ -174,6 +242,83 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* 초기화 모달 */}
+      {showClearModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="glass-card p-6 max-w-md w-full mx-4"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">데이터 초기화</h3>
+              <button
+                onClick={() => setShowClearModal(false)}
+                className="p-1 rounded hover:bg-white/10 text-gray-400"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <p className="text-sm text-gray-400 mb-4">초기화할 데이터를 선택하세요:</p>
+            <div className="space-y-2 mb-4">
+              {[
+                { key: 'clear_indexed_files', label: '인덱싱 문서', count: stats?.indexed_files ?? 0 },
+                { key: 'clear_reorganization_logs', label: '파일 정리 기록', count: stats?.reorganization_count ?? 0 },
+                { key: 'clear_index_jobs', label: '인덱싱 작업', count: stats?.index_jobs ?? 0 },
+                { key: 'clear_scan_cache', label: '스캔 캐시', count: stats?.scan_count ?? 0 },
+              ].map(({ key, label, count }) => (
+                <label
+                  key={key}
+                  className="flex items-center gap-3 p-2 rounded hover:bg-white/5 cursor-pointer"
+                >
+                  {clearOptions[key as keyof typeof clearOptions] ? (
+                    <CheckSquare size={18} className="text-indigo-400" />
+                  ) : (
+                    <Square size={18} className="text-gray-500" />
+                  )}
+                  <span className="text-sm text-white flex-1">{label}</span>
+                  <span className="text-xs text-gray-500">({count}개)</span>
+                  <input
+                    type="checkbox"
+                    checked={clearOptions[key as keyof typeof clearOptions]}
+                    onChange={(e) =>
+                      setClearOptions((prev) => ({ ...prev, [key]: e.target.checked }))
+                    }
+                    className="hidden"
+                  />
+                </label>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setClearOptions({
+                    clear_indexed_files: true,
+                    clear_reorganization_logs: true,
+                    clear_index_jobs: true,
+                    clear_scan_cache: true,
+                  });
+                }}
+                className="flex-1 px-3 py-2 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-400 text-sm"
+              >
+                전체 선택
+              </button>
+              <button
+                onClick={() => {
+                  if (confirm('선택한 데이터를 모두 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+                    clearMutation.mutate(clearOptions);
+                  }
+                }}
+                disabled={!Object.values(clearOptions).some(Boolean) || clearMutation.isPending}
+                className="flex-1 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium"
+              >
+                {clearMutation.isPending ? '초기화 중...' : '초기화'}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

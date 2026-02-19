@@ -16,6 +16,8 @@ import {
   ChevronDown,
   ChevronUp,
   Sparkles,
+  FolderOpen,
+  Play,
 } from 'lucide-react';
 import { studyApi } from '../services/api';
 import FolderPathInput from '../components/FolderPathInput';
@@ -95,7 +97,7 @@ function Expandable({ label, children }: { label: string; children: React.ReactN
 export default function StudyPage() {
   const [rootPath, setRootPath] = useState('');
   const [activeTab, setActiveTab] = useState<TabKey>('summary');
-  const [inputMode, setInputMode] = useState<'upload' | 'folder'>('upload');
+  const [inputMode, setInputMode] = useState<'upload' | 'folder'>('folder');
   const [summary, setSummary] = useState<string | null>(null);
   const [concepts, setConcepts] = useState<Concept[] | null>(null);
   const [questions, setQuestions] = useState<Question[] | null>(null);
@@ -164,9 +166,30 @@ export default function StudyPage() {
           {inputMode === 'upload' ? (
             <FileUploadZone onUploadComplete={(path) => setRootPath(path)} />
           ) : (
-            <FolderPathInput value={rootPath} onChange={setRootPath} placeholder="학습할 폴더 경로" />
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <FolderPathInput value={rootPath} onChange={setRootPath} placeholder="학습할 폴더 경로 (예: /Users/이름/Documents)" />
+              </div>
+              <button
+                onClick={() => summaryMutation.mutate()}
+                disabled={disabled || anyLoading}
+                className="btn-primary text-sm py-2 shrink-0"
+              >
+                {anyLoading ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
+                전체 분석
+              </button>
+            </div>
           )}
         </div>
+        {rootPath.trim() && (
+          <p className="text-xs text-emerald-400 mt-2 flex items-center gap-1">
+            <FolderOpen size={12} />
+            {rootPath} — 아래 버튼으로 개별 분석도 가능합니다
+          </p>
+        )}
+        {!rootPath.trim() && inputMode === 'folder' && (
+          <p className="text-xs text-gray-500 mt-2">폴더 경로를 입력하면 AI가 파일을 분석합니다</p>
+        )}
       </motion.section>
 
       {/* 기능 버튼 */}

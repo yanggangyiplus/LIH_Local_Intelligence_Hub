@@ -32,11 +32,34 @@ class StudyService:
     def llm(self):
         return get_llm_provider()
 
+    _SKIP_DIRS = frozenset({
+        "node_modules", ".git", "__pycache__", ".venv", "venv",
+        ".tox", ".mypy_cache", ".next", "dist", "build", ".cache", "target",
+    })
+
+    def _read_files_directly(self, root_path: str, max_files: int = 20, max_chars: int = 8000) -> str:
+        """인덱싱 없이 폴더에서 직접 파일을 읽어 컨텍스트 생성."""
+        root = Path(root_path)
+        texts: list[str] = []
+        for f in root.rglob("*"):
+            # node_modules 등 무거운 디렉토리 건너뛰기
+            if any(part in self._SKIP_DIRS for part in f.parts):
+                continue
+            if f.is_file() and self.extractor.can_extract(f):
+                t = self.extractor.extract(f)
+                if t and len(t.strip()) > 50:
+                    texts.append(f"[{f.name}]\n{t[:max_chars]}")
+                    if len(texts) >= max_files:
+                        break
+        return "\n\n---\n\n".join(texts)
+
     async def extract_concepts(self, root_path: str, options: dict[str, Any] | None = None) -> ConceptExtractionResult:
         """선택 폴더에서 핵심 개념 추출."""
         root = Path(root_path)
         texts: list[tuple[str, str]] = []
         for f in root.rglob("*"):
+            if any(part in self._SKIP_DIRS for part in f.parts):
+                continue
             if f.is_file() and self.extractor.can_extract(f):
                 t = self.extractor.extract(f)
                 if t and len(t) > 100:
@@ -61,7 +84,8 @@ class StudyService:
             concepts = arr if isinstance(arr, list) else []
             file_links: dict[str, list[str]] = {}
             for c in concepts:
-                cid = c.get("id", str(len(file_links)))
+                # LLM이 id를 정수로 반환할 수 있으므로 항상 문자열로 변환
+                cid = str(c.get("id", len(file_links)))
                 file_links[cid] = [p for p, _ in texts[:10]]
             return ConceptExtractionResult(concepts=concepts, file_links=file_links)
         except Exception as e:
@@ -69,17 +93,19 @@ class StudyService:
             return ConceptExtractionResult(concepts=[], file_links={})
 
     async def generate_summary(self, root_path: str, options: dict[str, Any] | None = None) -> str:
-        """폴더/문서 요약 생성."""
+        """폴더/문서 요약 생성. 인덱싱된 데이터 우선, 없으면 파일 직접 읽기."""
         chunks = self.retriever.search(
             "이 폴더/프로젝트의 전반적인 내용을 요약해주세요.",
             top_k=10,
             scope="folder",
             scope_path=root_path,
         )
-        if not chunks:
-            return "인덱싱된 내용이 없습니다. 먼저 해당 폴더를 인덱싱해주세요."
-
-        context = "\n\n".join(c.content for c in chunks)
+        if chunks:
+            context = "\n\n".join(c.content for c in chunks)
+        else:
+            context = self._read_files_directly(root_path)
+            if not context:
+                return "분석할 파일이 없습니다. 텍스트 파일이 포함된 폴더 경로를 입력해주세요."
         prompt = f"""다음 내용을 3-5문장으로 간결히 요약해주세요. 한국어로 작성하세요.
 
 {context[:6000]}"""
@@ -91,12 +117,14 @@ class StudyService:
             return f"요약 생성 중 오류: {e}"
 
     async def generate_questions(self, root_path: str, options: dict[str, Any] | None = None) -> list[dict[str, Any]]:
-        """학습용 질문 생성."""
+        """학습용 질문 생성. 인덱싱 데이터 우선, 없으면 파일 직접 읽기."""
         chunks = self.retriever.search("핵심 내용", top_k=8, scope="folder", scope_path=root_path)
-        if not chunks:
-            return []
-
-        context = "\n\n".join(c.content for c in chunks)
+        if chunks:
+            context = "\n\n".join(c.content for c in chunks)
+        else:
+            context = self._read_files_directly(root_path)
+            if not context:
+                return []
         prompt = f"""다음 내용을 기반으로 학습용 객관식/주관식 질문 5개를 만들어주세요.
 JSON 배열로 출력하세요: [{{"question": "질문", "type": "multiple_choice|short_answer", "options": ["A","B"] (객관식일 때), "answer": "정답"}}]
 
@@ -112,12 +140,14 @@ JSON 배열로 출력하세요: [{{"question": "질문", "type": "multiple_choic
             return []
 
     async def generate_interview_questions(self, root_path: str, options: dict[str, Any] | None = None) -> list[dict[str, Any]]:
-        """면접 질문 생성."""
+        """면접 질문 생성. 인덱싱 데이터 우선, 없으면 파일 직접 읽기."""
         chunks = self.retriever.search("핵심 기술, 개념, 아키텍처", top_k=8, scope="folder", scope_path=root_path)
-        if not chunks:
-            return []
-
-        context = "\n\n".join(c.content for c in chunks)
+        if chunks:
+            context = "\n\n".join(c.content for c in chunks)
+        else:
+            context = self._read_files_directly(root_path)
+            if not context:
+                return []
         prompt = f"""다음 기술 문서/코드 기반으로 기술 면접 질문 5개를 만들어주세요.
 JSON 배열: [{{"question": "질문", "hint": "힌트", "expected_answer": "예상 답변 요약"}}]
 
@@ -157,14 +187,35 @@ JSON 배열: [{{"question": "질문", "hint": "힌트", "expected_answer": "예�
 
 
 def _extract_json_array(text: str) -> Any:
-    """텍스트에서 JSON 배열 추출."""
+    """텍스트에서 JSON 배열 추출. LLM 출력의 다양한 형식 대응."""
     text = text.strip()
+
+    # 코드 블록 안의 JSON 추출
     if "```" in text:
-        start = text.find("[")
-        end = text.rfind("]") + 1
-        if start >= 0 and end > start:
-            text = text[start:end]
+        import re
+        m = re.search(r"```(?:json)?\s*(\[[\s\S]*?\])\s*```", text)
+        if m:
+            text = m.group(1)
+
+    # [ ... ] 배열 추출 시도
+    start = text.find("[")
+    end = text.rfind("]") + 1
+    if start >= 0 and end > start:
+        try:
+            return json.loads(text[start:end])
+        except json.JSONDecodeError:
+            pass
+
+    # 전체 텍스트를 JSON으로 파싱 시도
     try:
-        return json.loads(text)
+        result = json.loads(text)
+        if isinstance(result, list):
+            return result
+        if isinstance(result, dict) and any(k in result for k in ("concepts", "questions", "plan")):
+            for k in ("concepts", "questions", "plan"):
+                if k in result and isinstance(result[k], list):
+                    return result[k]
+        return result
     except json.JSONDecodeError:
+        logger.warning("JSON 파싱 실패", text_preview=text[:200])
         return []

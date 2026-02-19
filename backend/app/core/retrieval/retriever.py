@@ -21,8 +21,8 @@ logger = get_logger(__name__)
 # 짧은/모호한 질문용 확장 키워드 (프로젝트/폴더 설명 검색용)
 QUERY_EXPANSION_KEYWORDS = "프로젝트 설명 README 아키텍처 개요 목적 기능 로컬 AI"
 
-# "이 폴더가 뭐야" 질문 시 README/문서 검색용 전용 쿼리 (코드 파일 대신 설명 문서 우선)
-README_FIRST_QUERY = "README 프로젝트 소개 Local Intelligence Hub LIH 로컬 AI 파일 정리 RAG"
+# "이 폴더가 뭐야" 질문 시 README/문서 검색용 전용 쿼리
+README_FIRST_QUERY = "README 프로젝트 소개 설명 개요 목적 기능 아키텍처"
 
 
 def _is_folder_what_question(query: str) -> bool:
@@ -80,12 +80,12 @@ class Retriever:
             return []
 
         where = None
-        if scope == "folder" and scope_path:
-            where = {"folder_path": scope_path}
+        if scope in ("folder", "project") and scope_path:
+            # Path.resolve()로 저장되므로 동일하게 정규화
+            normalized = str(Path(scope_path).resolve())
+            where = {"folder_path": normalized}
         elif scope == "file" and scope_path:
             where = {"file_path": scope_path}
-        elif scope == "project" and scope_path:
-            where = {"folder_path": scope_path}
 
         def _do_search(q: str) -> list[QueryChunk]:
             """단일 쿼리로 검색 수행."""

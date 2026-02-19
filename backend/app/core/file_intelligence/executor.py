@@ -78,8 +78,17 @@ class ReorganizationExecutor:
             try:
                 self._execute_one(action, dry_run)
             except (PathSecurityError, FileNotFoundError, FileExistsError) as e:
-                logger.error("실행 실패", action=action, error=str(e))
-                raise
+                # 개별 액션 실패는 로그만 남기고 계속 진행 (전체 중단 방지)
+                logger.error("실행 실패 (건너뜀)", action=action, error=str(e))
+                self._executed.append({
+                    "id": str(uuid.uuid4()),
+                    "plan_id": self.plan.plan_id,
+                    "operation_type": "error",
+                    "source_path": action.source_path or "",
+                    "target_path": action.target_path,
+                    "original_state_json": json.dumps({"error": str(e)}),
+                    "dry_run": dry_run,
+                })
 
         return self._executed
 

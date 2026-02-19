@@ -18,6 +18,10 @@ const api = axios.create({
 export const dashboardApi = {
   stats: () => api.get('/dashboard/stats'),
   recentActivity: (limit = 10) => api.get(`/dashboard/recent-activity?limit=${limit}`),
+  clear: (data: { clear_indexed_files?: boolean; clear_reorganization_logs?: boolean; clear_index_jobs?: boolean; clear_scan_cache?: boolean; clear_all?: boolean }) =>
+    api.post('/dashboard/clear', data),
+  deleteActivity: (activityType: string, activityId: string) =>
+    api.delete(`/dashboard/activity/${activityType}/${activityId}`),
 };
 
 /** File Intelligence */
