@@ -39,6 +39,18 @@ async def start_indexing(req: IndexRequest) -> dict:
 
     async def run():
         indexer = KnowledgeIndexer()
+        from app.services.database import get_connection
+        try:
+            async with get_connection() as db:
+                await db.execute(
+                    "INSERT OR REPLACE INTO index_jobs (id, root_path, status) VALUES (?, ?, ?)",
+                    (job_id, req.root_path, "running"),
+                )
+                await db.commit()
+        except Exception:
+            pass
+
+        indexed_file_paths: list[str] = []
         try:
             async for state in indexer.index_folder(
                 req.root_path,
@@ -47,10 +59,40 @@ async def start_indexing(req: IndexRequest) -> dict:
                 force_reindex=req.force_reindex,
             ):
                 _index_jobs[job_id].update(state)
+                # 인덱싱 성공한 파일 경로 수집 (대시보드용)
+                if state.get("status") == "indexed" and state.get("current"):
+                    indexed_file_paths.append(state["current"])
             _index_jobs[job_id]["status"] = "completed"
+
+            try:
+                async with get_connection() as db:
+                    await db.execute(
+                        "UPDATE index_jobs SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                        ("completed", job_id),
+                    )
+                    # indexed_files 테이블에 파일 기록
+                    for fpath in indexed_file_paths:
+                        await db.execute(
+                            """INSERT OR REPLACE INTO indexed_files
+                               (id, file_path, index_job_id, indexed_at)
+                               VALUES (?, ?, ?, CURRENT_TIMESTAMP)""",
+                            (f"{job_id}_{hash(fpath) & 0xFFFFFFFF:08x}", fpath, job_id),
+                        )
+                    await db.commit()
+            except Exception:
+                pass
         except Exception as e:
             _index_jobs[job_id]["status"] = "failed"
             _index_jobs[job_id]["error"] = str(e)
+            try:
+                async with get_connection() as db:
+                    await db.execute(
+                        "UPDATE index_jobs SET status = ?, error_message = ? WHERE id = ?",
+                        ("failed", str(e), job_id),
+                    )
+                    await db.commit()
+            except Exception:
+                pass
 
     import asyncio
 
@@ -122,6 +164,18 @@ async def get_knowledge_stats() -> dict:
         return {"collection_count": count, "ready": count > 0}
     except Exception as e:
         return {"collection_count": 0, "ready": False, "error": str(e)}
+
+
+@router.delete("/reset")
+async def reset_knowledge_base() -> dict:
+    """ChromaDB 컬렉션 삭제 후 재생성. 임베딩 차원 불일치 등 해결용."""
+    indexer = KnowledgeIndexer()
+    try:
+        indexer.client.delete_collection(COLLECTION_NAME)
+    except Exception:
+        pass
+    indexer.get_collection(COLLECTION_NAME)
+    return {"status": "ok", "message": "지식 베이스가 초기화되었습니다. 다시 인덱싱해주세요."}
 
 
 @router.post("/search")

@@ -76,11 +76,13 @@ export default function DashboardPage() {
   const { data: stats } = useQuery({
     queryKey: ['dashboardStats'],
     queryFn: async () => (await dashboardApi.stats()).data,
+    refetchInterval: 10000,
   });
 
   const { data: activityData } = useQuery({
     queryKey: ['recentActivity'],
     queryFn: async () => (await dashboardApi.recentActivity()).data,
+    refetchInterval: 10000,
   });
 
   return (

@@ -169,9 +169,10 @@ class OrganizationPlanner:
 
 ## 필수 규칙 (위반 시 해당 작업은 출력하지 마세요)
 1. rename A→A, move X→X 처럼 source와 target이 같거나 효과가 없으면 출력 금지
-2. 파일 내용을 보고 비슷한 것끼리 묶고, 내용에 맞는 적절한 이름을 제안
-3. 정리 기준: {organize_desc}
-4. 초점: {focus_desc}
+2. .DS_Store, Thumbs.db, .gitignore 등 시스템/숨김 파일은 절대 건드리지 마세요
+3. 파일 내용을 보고 비슷한 것끼리 묶고, 내용에 맞는 적절한 이름을 제안
+4. 정리 기준: {organize_desc}
+5. 초점: {focus_desc}
 
 ## 작업 유형
 - rename: 같은 폴더 내 이름만 변경. target=전체 경로(이름 포함)

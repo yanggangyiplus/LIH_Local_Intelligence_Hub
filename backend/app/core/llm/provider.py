@@ -152,13 +152,13 @@ class OllamaProvider(LLMProvider):
         self, messages: list[dict], model: Optional[str] = None
     ) -> AsyncGenerator[str, None]:
         """Ollama 스트리밍 대화 완성."""
-        stream = self.async_client.chat(
+        stream = await self.async_client.chat(
             model=model or self.default_model,
             messages=messages,
             stream=True,
         )
         async for part in stream:
-            content = getattr(part.message, "content", "") or ""
+            content = getattr(part.message, "content", "") or getattr(part, "content", "") or ""
             if content:
                 yield content
 

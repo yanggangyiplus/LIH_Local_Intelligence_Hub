@@ -24,6 +24,13 @@ logger = get_logger(__name__)
 
 COLLECTION_NAME = "local_knowledge"
 
+# 항상 제외할 디렉토리 (fnmatch가 ** 패턴을 제대로 처리 못하므로 이름으로 직접 체크)
+_ALWAYS_EXCLUDE_DIRS = frozenset({
+    "node_modules", ".git", "__pycache__", ".venv", "venv",
+    ".tox", ".mypy_cache", ".pytest_cache", ".next", ".nuxt",
+    "dist", "build", ".cache", ".parcel-cache", "target",
+})
+
 
 class KnowledgeIndexer:
     """
@@ -69,7 +76,9 @@ class KnowledgeIndexer:
                 return
             for item in safe_ops.list_dir_safe(p, include_files=True, include_dirs=True):
                 if item.is_dir():
-                    # exclude 패턴 체크
+                    # 디렉토리명으로 빠른 제외 (node_modules, .git 등)
+                    if item.name in _ALWAYS_EXCLUDE_DIRS:
+                        continue
                     rel = str(item.relative_to(root))
                     skip = any(
                         _fnmatch(rel, pat) for pat in exclude_patterns
@@ -108,6 +117,17 @@ class KnowledgeIndexer:
         total = len(files)
 
         collection = self.get_collection()
+
+        # 동일 폴더의 이전 인덱스 데이터 삭제 (재인덱싱 시 오래된 결과 방지)
+        try:
+            existing = collection.get(where={"folder_path": str(root)})
+            if existing and existing["ids"]:
+                logger.info("이전 인덱스 삭제", folder=str(root), count=len(existing["ids"]))
+                for batch_start in range(0, len(existing["ids"]), 500):
+                    batch_ids = existing["ids"][batch_start:batch_start + 500]
+                    collection.delete(ids=batch_ids)
+        except Exception as e:
+            logger.warning("이전 인덱스 삭제 실패 (계속 진행)", error=str(e))
         ids: list[str] = []
         documents: list[str] = []
         metadatas: list[dict] = []

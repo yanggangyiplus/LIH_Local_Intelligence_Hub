@@ -52,6 +52,19 @@ async def start_scan(req: ScanRequest) -> dict:
     job_id = str(uuid.uuid4())
     result = analyzer.build_scan_result(job_id, str(root), "completed")
     _scan_cache[job_id] = result
+
+    # scan_cache DB에 기록 (대시보드용)
+    try:
+        import json as _json
+        async with get_connection() as db:
+            await db.execute(
+                "INSERT OR REPLACE INTO scan_cache (root_path, scan_result_json) VALUES (?, ?)",
+                (str(root), _json.dumps({"total_files": result.total_files, "job_id": job_id})),
+            )
+            await db.commit()
+    except Exception:
+        pass
+
     return {"job_id": job_id, "status": "completed", "total_files": result.total_files}
 
 
@@ -109,26 +122,33 @@ async def apply_reorganization(req: ApplyReorganizationRequest) -> dict:
 
     plan = _plan_cache[req.plan_id]
     root = Path(plan.root_path)
-    executor = ReorganizationExecutor(plan, root)
-    logs = executor.execute(action_ids=req.action_ids or [], dry_run=req.dry_run)
 
-    # DB에 로그 저장
-    async with get_connection() as db:
-        for log in logs:
-            await db.execute(
-                """INSERT INTO reorganization_logs (id, plan_id, operation_type, source_path, target_path, original_state_json, dry_run)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    log["id"],
-                    log["plan_id"],
-                    log["operation_type"],
-                    log["source_path"],
-                    log.get("target_path"),
-                    log.get("original_state_json"),
-                    1 if log.get("dry_run") else 0,
-                ),
-            )
-        await db.commit()
+    try:
+        executor = ReorganizationExecutor(plan, root)
+        logs = executor.execute(action_ids=req.action_ids or [], dry_run=req.dry_run)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"파일 정리 실행 중 오류: {str(e)}")
+
+    try:
+        async with get_connection() as db:
+            for log in logs:
+                await db.execute(
+                    """INSERT INTO reorganization_logs (id, plan_id, operation_type, source_path, target_path, original_state_json, dry_run)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        log["id"],
+                        log["plan_id"],
+                        log["operation_type"],
+                        log["source_path"],
+                        log.get("target_path"),
+                        log.get("original_state_json"),
+                        1 if log.get("dry_run") else 0,
+                    ),
+                )
+            await db.commit()
+    except Exception as e:
+        # DB 저장 실패해도 파일 작업은 이미 완료됨
+        return {"applied": True, "dry_run": req.dry_run, "logs_count": len(logs), "db_warning": str(e)}
 
     return {"applied": True, "dry_run": req.dry_run, "logs_count": len(logs)}
 
