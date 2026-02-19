@@ -33,22 +33,36 @@ class SettingsUpdate(BaseModel):
     openai_chat_model: Optional[str] = None
 
 
-@router.get("", response_model=SettingsResponse)
+@router.get("")
 async def get_current_settings():
     """현재 설정 조회."""
-    settings = get_settings()
-    provider = get_llm_provider()
-    return SettingsResponse(
-        llm_provider=provider.provider_name,
-        llm_model=provider.default_model,
-        openai_api_key_set=bool(settings.openai_api_key),
-        ollama_base_url=settings.ollama_base_url,
-        ollama_chat_model=settings.ollama_chat_model,
-        openai_chat_model=settings.openai_chat_model,
-        chunk_size=settings.chunk_size,
-        chunk_overlap=settings.chunk_overlap,
-        max_file_size_mb=settings.max_file_size_mb,
-    )
+    try:
+        settings = get_settings()
+        provider = get_llm_provider()
+        return {
+            "llm_provider": provider.provider_name,
+            "llm_model": provider.default_model,
+            "openai_api_key_set": bool(settings.openai_api_key),
+            "ollama_base_url": settings.ollama_base_url,
+            "ollama_chat_model": settings.ollama_chat_model,
+            "openai_chat_model": settings.openai_chat_model,
+            "chunk_size": settings.chunk_size,
+            "chunk_overlap": settings.chunk_overlap,
+            "max_file_size_mb": settings.max_file_size_mb,
+        }
+    except Exception as e:
+        logger.error("설정 조회 실패", error=str(e))
+        return {
+            "llm_provider": "unknown",
+            "llm_model": "unknown",
+            "openai_api_key_set": False,
+            "ollama_base_url": "",
+            "ollama_chat_model": "",
+            "openai_chat_model": "",
+            "chunk_size": 512,
+            "chunk_overlap": 64,
+            "max_file_size_mb": 50,
+        }
 
 
 @router.put("")
