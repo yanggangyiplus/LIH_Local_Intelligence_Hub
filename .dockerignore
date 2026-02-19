@@ -1,0 +1,17 @@
+# 루트 Dockerfile 빌드 시 컨텍스트 축소 (백엔드만 필요)
+.git
+.gitignore
+*.md
+.env
+frontend
+src-tauri
+docs
+node_modules
+backend/data
+backend/.env
+backend/__pycache__
+backend/*.pyc
+backend/.pytest_cache
+backend/.ruff_cache
+*.dmg
+.cursor
