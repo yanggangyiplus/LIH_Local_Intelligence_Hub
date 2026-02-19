@@ -42,6 +42,13 @@ class Settings(BaseSettings):
     openai_chat_model: str = Field(
         default="gpt-4o-mini", description="OpenAI 채팅 모델"
     )
+    openai_embedding_model: str = Field(
+        default="text-embedding-3-small", description="OpenAI 임베딩 모델"
+    )
+    use_openai_embedding: bool = Field(
+        default=False,
+        description="True면 임베딩도 OpenAI 사용 (클라우드 배포 시 sentence-transformers 미설치 대비)",
+    )
 
     # LLM (Ollama) - 폴백 / 로컬 전용
     ollama_base_url: str = Field(
