@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { knowledgeApi } from '../services/api';
 import FolderPathInput from '../components/FolderPathInput';
+import FileUploadZone from '../components/FileUploadZone';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -33,6 +34,7 @@ export default function KnowledgePage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [lastJobId, setLastJobId] = useState<string | null>(null);
+  const [inputMode, setInputMode] = useState<'upload' | 'folder'>('upload');
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -92,7 +94,8 @@ export default function KnowledgePage() {
     setMessages(prev => [...prev, { role: 'assistant', content: '', streaming: true }]);
 
     try {
-      const response = await fetch('/api/v1/knowledge/query/stream', {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+      const response = await fetch(`${apiBase}/knowledge/query/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: userMsg, scope: 'all', top_k: 8 }),
@@ -177,26 +180,53 @@ export default function KnowledgePage() {
         animate={{ opacity: 1, y: 0 }}
         className="glass-card p-4 mb-4 shrink-0"
       >
-        <div className="flex items-center gap-3 flex-wrap">
+        {/* 탭: 업로드 / 폴더 경로 */}
+        <div className="flex items-center gap-4 mb-3">
           <Database size={18} className="text-indigo-400 shrink-0" />
-          <div className="flex-1 min-w-[200px]">
-            <FolderPathInput value={indexPath} onChange={setIndexPath} placeholder="인덱싱할 폴더 경로" />
+          <div className="flex gap-1 p-0.5 rounded-lg bg-white/5">
+            {(['upload', 'folder'] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setInputMode(m)}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                  inputMode === m ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                {m === 'upload' ? '파일 업로드' : '폴더 경로'}
+              </button>
+            ))}
           </div>
-          <button
-            onClick={() => indexMutation.mutate()}
-            disabled={!indexPath.trim() || isIndexing}
-            className="btn-primary text-sm py-2"
-          >
-            {isIndexing ? <Loader2 size={16} className="animate-spin" /> : <FolderOpen size={16} />}
-            인덱싱
-          </button>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/5">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/5 ml-auto">
             <div className={`w-2 h-2 rounded-full ${hasData ? 'bg-emerald-400' : 'bg-gray-500'}`} />
             <span className="text-xs text-gray-400">
               {isIndexing ? '인덱싱 중...' : hasData ? `${(stats as { collection_count?: number })?.collection_count ?? 0}개 문서 준비` : '인덱싱 필요'}
             </span>
           </div>
         </div>
+
+        {inputMode === 'upload' ? (
+          <FileUploadZone
+            onUploadComplete={(path) => {
+              setIndexPath(path);
+              indexMutation.mutate();
+            }}
+            disabled={isIndexing}
+          />
+        ) : (
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex-1 min-w-[200px]">
+              <FolderPathInput value={indexPath} onChange={setIndexPath} placeholder="인덱싱할 폴더 경로" />
+            </div>
+            <button
+              onClick={() => indexMutation.mutate()}
+              disabled={!indexPath.trim() || isIndexing}
+              className="btn-primary text-sm py-2"
+            >
+              {isIndexing ? <Loader2 size={16} className="animate-spin" /> : <FolderOpen size={16} />}
+              인덱싱
+            </button>
+          </div>
+        )}
       </motion.section>
 
       {/* 채팅 영역 */}

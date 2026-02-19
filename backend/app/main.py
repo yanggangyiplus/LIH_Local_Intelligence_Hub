@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import dashboard, file_intelligence, knowledge, settings_api, study, system
+from app.api.routes import dashboard, file_intelligence, knowledge, settings_api, study, system, upload
 from app.core.config import get_settings
 from app.core.logging_config import configure_logging, get_logger
 from app.services.database import init_db
@@ -71,6 +71,7 @@ def create_app() -> FastAPI:
     app.include_router(settings_api.router, prefix="/api/v1")
     app.include_router(study.router, prefix="/api/v1")
     app.include_router(system.router, prefix="/api/v1")
+    app.include_router(upload.router, prefix="/api/v1")
 
     return app
 

@@ -70,6 +70,21 @@ export const studyApi = {
     api.post('/study/plan', { root_path: rootPath, options: {} }),
 };
 
+/** Upload (웹 환경 파일 업로드) */
+export const uploadApi = {
+  upload: (files: File[], sessionId?: string) => {
+    const formData = new FormData();
+    files.forEach((f) => formData.append('files', f));
+    if (sessionId) formData.append('session_id', sessionId);
+    return api.post('/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 300000,
+    });
+  },
+  sessions: () => api.get('/upload/sessions'),
+  deleteSession: (sessionId: string) => api.delete(`/upload/${sessionId}`),
+};
+
 /** Settings */
 export const settingsApi = {
   get: () => api.get('/settings'),

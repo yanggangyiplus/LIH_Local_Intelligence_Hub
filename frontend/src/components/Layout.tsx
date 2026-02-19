@@ -17,11 +17,13 @@ import {
   ChevronRight,
   Zap,
   Menu,
+  Download,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { systemApi } from '../services/api';
 
 const navItems = [
+  { to: '/', icon: Download, label: '다운로드', desc: '앱 & 소개' },
   { to: '/dashboard', icon: LayoutDashboard, label: '대시보드', desc: '통계 & 활동' },
   { to: '/file-intelligence', icon: FileSearch, label: '파일 인텔리전스', desc: 'AI 파일 정리' },
   { to: '/knowledge', icon: BookOpen, label: '지식 엔진', desc: 'RAG 검색 & 채팅' },
@@ -32,6 +34,7 @@ const navItems = [
 
 /** 페이지 타이틀 매핑 */
 const pageTitles: Record<string, string> = {
+  '/': '다운로드 & 소개',
   '/dashboard': '대시보드',
   '/file-intelligence': '파일 인텔리전스',
   '/knowledge': '지식 엔진 (RAG)',
@@ -122,6 +125,7 @@ export default function Layout({ children }: LayoutProps) {
             <NavLink
               key={to}
               to={to}
+              end={to === '/'}
               onClick={() => setMobileOpen(false)}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative

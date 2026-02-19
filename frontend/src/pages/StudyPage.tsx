@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { studyApi } from '../services/api';
 import FolderPathInput from '../components/FolderPathInput';
+import FileUploadZone from '../components/FileUploadZone';
 
 interface Concept { name: string; description?: string; relevance?: number; }
 interface Question { question: string; type?: string; options?: string[]; answer?: string; }
@@ -94,6 +95,7 @@ function Expandable({ label, children }: { label: string; children: React.ReactN
 export default function StudyPage() {
   const [rootPath, setRootPath] = useState('');
   const [activeTab, setActiveTab] = useState<TabKey>('summary');
+  const [inputMode, setInputMode] = useState<'upload' | 'folder'>('upload');
   const [summary, setSummary] = useState<string | null>(null);
   const [concepts, setConcepts] = useState<Concept[] | null>(null);
   const [questions, setQuestions] = useState<Question[] | null>(null);
@@ -139,14 +141,31 @@ export default function StudyPage() {
 
   return (
     <div className="space-y-6 max-w-5xl">
-      {/* 폴더 선택 */}
+      {/* 파일 입력 */}
       <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6">
-        <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
+        <div className="flex items-center gap-4 mb-4">
           <Sparkles size={18} className="text-purple-400" />
-          학습 폴더 선택
-        </h3>
+          <h3 className="font-semibold text-white">학습할 파일</h3>
+          <div className="flex gap-1 p-0.5 rounded-lg bg-white/5">
+            {(['upload', 'folder'] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setInputMode(m)}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                  inputMode === m ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                {m === 'upload' ? '파일 업로드' : '폴더 경로'}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="max-w-2xl">
-          <FolderPathInput value={rootPath} onChange={setRootPath} placeholder="학습할 폴더 경로" />
+          {inputMode === 'upload' ? (
+            <FileUploadZone onUploadComplete={(path) => setRootPath(path)} />
+          ) : (
+            <FolderPathInput value={rootPath} onChange={setRootPath} placeholder="학습할 폴더 경로" />
+          )}
         </div>
       </motion.section>
 
