@@ -17,4 +17,6 @@ RUN mkdir -p data
 
 EXPOSE 8000
 
-CMD ["python", "-m", "app.main"]
+# Railway 등 클라우드: 0.0.0.0 바인딩 필수, PORT는 Railway가 주입
+ENV HOST=0.0.0.0
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
