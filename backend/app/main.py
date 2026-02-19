@@ -46,7 +46,12 @@ def create_app() -> FastAPI:
 
     # CORS (로컬 + 배포 프론트 도메인)
     settings = get_settings()
-    origins = ["http://localhost:3000", "http://127.0.0.1:3000", "tauri://localhost"]
+    origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "tauri://localhost",
+        "https://lihlocalintelligencehub.vercel.app",  # Vercel 프로덕션
+    ]
     if settings.cors_origins:
         origins.extend(s.strip() for s in settings.cors_origins.split(",") if s.strip())
     app.add_middleware(
