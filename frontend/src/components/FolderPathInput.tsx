@@ -30,7 +30,6 @@ export default function FolderPathInput({
   /** Tauri 환경: 네이티브 폴더 다이얼로그 (플러그인 설치 시) */
   const handleTauriPick = useCallback(async () => {
     try {
-      // @ts-expect-error - Tauri 플러그인
       const { open } = await import(/* @vite-ignore */ '@tauri-apps/plugin-dialog');
       const selected = await open({ directory: true, multiple: false });
       if (selected) {
@@ -51,11 +50,7 @@ export default function FolderPathInput({
       if (path) onChange(path);
     } catch (err) {
       // 비동기 후 fileInput.click()은 브라우저 보안으로 차단됨 → 안내 메시지
-      alert(
-        '폴더 선택에 실패했습니다.\n\n' +
-          '1. 백엔드가 실행 중인지 확인하세요 (cd backend && python -m app.main)\n' +
-          '2. 또는 경로를 직접 입력해 주세요'
-      );
+      // 폴더 선택 실패 시 조용히 무시 (사용자는 직접 입력 가능)
     } finally {
       setIsPicking(false);
     }
@@ -103,7 +98,7 @@ export default function FolderPathInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         disabled={disabled}
-        className={`flex-1 px-4 py-2 border border-gray-500 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 text-white bg-gray-700 placeholder-gray-400 ${inputClassName}`}
+        className={`flex-1 input-glass ${inputClassName}`}
       />
       <input
         ref={fileInputRef}
@@ -120,7 +115,7 @@ export default function FolderPathInput({
         onClick={handlePickClick}
         disabled={disabled || isPicking}
         title="폴더 선택"
-        className="flex items-center gap-2 px-4 py-2 border border-gray-500 rounded-lg text-white bg-gray-700 hover:bg-gray-600 disabled:opacity-50 shrink-0"
+        className="btn-secondary shrink-0 py-2.5"
       >
         {isPicking ? (
           <span className="animate-pulse text-sm text-white">선택 중...</span>

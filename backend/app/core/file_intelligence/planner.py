@@ -2,9 +2,8 @@
 AI 정리 계획(Plan) 생성 모듈.
 
 파일·폴더 구조·내용·메타데이터 분석 결과 + 파일 내용을 바탕으로
-LLM이 이동·리네이밍·중복 정리 등 정리 계획을 생성.
-정리 이유·과정을 제시해 사용자 이해와 통제 확보. (흐름: 이해→판단→계획→실행→Undo)
-- no-op 제외, 이름·확장자·내용 기반 그룹핑·이름 제안
+LLM(OpenAI/Ollama)이 이동·리네이밍·중복 정리 등 정리 계획을 생성.
+LLM Provider 추상화 레이어를 통해 백엔드 자동 선택.
 """
 
 import json
@@ -13,10 +12,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from ollama import Client as OllamaClient
-
 from app.core.config import get_settings
 from app.core.indexing.extractor import TextExtractor
+from app.core.llm.provider import get_llm_provider
 from app.core.logging_config import get_logger
 from app.models.schemas import (
     ProposedAction,
@@ -33,8 +31,8 @@ class PlanOptions:
 
     def __init__(
         self,
-        organize_by: str = "content",  # content | name | time
-        focus: str = "both",  # names | locations | both
+        organize_by: str = "content",
+        focus: str = "both",
     ):
         self.organize_by = organize_by
         self.focus = focus
@@ -43,7 +41,7 @@ class PlanOptions:
 class OrganizationPlanner:
     """
     AI 기반 폴더/파일 재구성 계획 생성.
-    Ollama LLM을 사용하여 자연어 기반 계획 생성.
+    LLM Provider를 통해 OpenAI 또는 Ollama 자동 선택.
     """
 
     def __init__(self, scan_result: ScanResult, options: Optional[PlanOptions] = None) -> None:
@@ -53,7 +51,7 @@ class OrganizationPlanner:
         self._extractor = TextExtractor()
 
     def _resolve_to_root(self, root: Path, path_str: str) -> Path:
-        """경로를 root 기준 절대 경로로 변환 (상대/절대 모두 처리)."""
+        """경로를 root 기준 절대 경로로 변환."""
         p = Path(path_str.strip())
         if p.is_absolute():
             try:
@@ -64,7 +62,7 @@ class OrganizationPlanner:
         return (root / path_str.lstrip("/")).resolve()
 
     def _is_noop_rename(self, root: Path, source: str, target: str) -> bool:
-        """rename 작업이 no-op인지 (source==target 효과)."""
+        """rename 작업이 no-op인지 확인."""
         try:
             src = self._resolve_to_root(root, source)
             tgt = self._resolve_to_root(root, target)
@@ -73,7 +71,7 @@ class OrganizationPlanner:
             return False
 
     def _is_noop_move(self, root: Path, source: str, target: str) -> bool:
-        """move 작업이 no-op인지 (이동 후 경로가 동일). target=목적지 폴더."""
+        """move 작업이 no-op인지 확인."""
         try:
             src = self._resolve_to_root(root, source)
             tgt_dir = self._resolve_to_root(root, target)
@@ -96,7 +94,7 @@ class OrganizationPlanner:
         return ""
 
     def _build_context(self) -> str:
-        """LLM에 전달할 컨텍스트 문자열 생성. 파일 내용 포함."""
+        """LLM에 전달할 컨텍스트 문자열 생성."""
         root = Path(self.scan.root_path)
         lines = [
             f"루트 경로: {root}",
@@ -118,7 +116,6 @@ class OrganizationPlanner:
             if f.is_dir:
                 lines.append(f"  DIR  {f.path}")
             else:
-                # 경로 정규화: 절대경로 또는 root 기준
                 p = Path(f.path)
                 if not p.is_absolute():
                     p = root / f.path
@@ -128,29 +125,20 @@ class OrganizationPlanner:
         return "\n".join(lines)
 
     def _call_llm(self, prompt: str) -> Optional[str]:
-        """Ollama LLM 호출."""
+        """LLM Provider를 통한 동기 LLM 호출."""
         try:
-            client = OllamaClient(host=self.settings.ollama_base_url)
-            response = client.chat(
-                model=self.settings.ollama_chat_model,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            msg = getattr(response, "message", None) or response.get("message", {})
-            content = getattr(msg, "content", None) or (msg.get("content") if isinstance(msg, dict) else None)
-            return content
+            llm = get_llm_provider()
+            return llm.chat_sync([{"role": "user", "content": prompt}])
         except Exception as e:
             logger.error("LLM 호출 실패", error=str(e))
             return None
 
     def generate_plan(self) -> ReorganizationPlan:
-        """
-        스캔 결과 기반 AI 재구성 계획 생성.
-        LLM 실패 시 기본 규칙 기반 계획만 반환.
-        """
+        """스캔 결과 기반 AI 재구성 계획 생성."""
         plan_id = str(uuid.uuid4())
         actions: list[ReorganizationAction] = []
 
-        # 1) 중복 파일 제거 제안 (유지 제외 삭제)
+        # 1) 중복 파일 제거 제안
         for dup in self.scan.duplicates:
             for p in dup.file_paths:
                 if p != dup.suggested_keep:
@@ -169,7 +157,7 @@ class OrganizationPlanner:
         organize_desc = {
             "content": "파일 내용(내부 텍스트)이 비슷한 것끼리 묶어 정리",
             "name": "파일/폴더 이름이나 확장자가 비슷한 것끼리 묶어 정리",
-            "time": "수정 시각 기준으로 그룹핑 (예: 2024년 폴더 등)",
+            "time": "수정 시각 기준으로 그룹핑",
         }.get(self.options.organize_by, "content")
         focus_desc = {
             "names": "파일·폴더 이름만 개선 (위치는 그대로)",
@@ -206,7 +194,6 @@ delete_duplicate는 이미 처리됨. move 시 target은 폴더 경로. create_f
         llm_out = self._call_llm(prompt)
         if llm_out:
             try:
-                # JSON 블록 추출
                 text = llm_out.strip()
                 if "```" in text:
                     start = text.find("[")
@@ -221,10 +208,8 @@ delete_duplicate는 이미 처리됨. move 시 target은 폴더 경로. create_f
                     target = (item.get("target") or "").strip()
                     reason = item.get("reason", "")
 
-                    # no-op 필터: source == target 또는 효과 없는 작업 제외
                     if action == "rename" and source and target:
                         if self._is_noop_rename(root, source, target):
-                            logger.debug("no-op rename 제외", source=source, target=target)
                             continue
                         actions.append(
                             ReorganizationAction(
@@ -236,7 +221,6 @@ delete_duplicate는 이미 처리됨. move 시 target은 폴더 경로. create_f
                         )
                     elif action == "move" and source and target:
                         if self._is_noop_move(root, source, target):
-                            logger.debug("no-op move 제외", source=source, target=target)
                             continue
                         actions.append(
                             ReorganizationAction(
@@ -247,7 +231,6 @@ delete_duplicate는 이미 처리됨. move 시 target은 폴더 경로. create_f
                             )
                         )
                     elif action == "create_folder" and target:
-                        # create_folder: target 폴더가 이미 있으면 no-op 가능 (선택적)
                         actions.append(
                             ReorganizationAction(
                                 action_type=ProposedAction.CREATE_FOLDER,
@@ -260,9 +243,10 @@ delete_duplicate는 이미 처리됨. move 시 target은 폴더 경로. create_f
                 logger.warning("LLM JSON 파싱 실패", error=str(e))
 
         llm_used = llm_out is not None
+        provider = get_llm_provider()
         summary = (
             f"총 {len(actions)}개 작업 제안 (중복 {len(self.scan.duplicates)}그룹 포함)"
-            + ("" if llm_used else ". (Ollama 미실행으로 AI 추가 제안 없음 - ollama serve 실행 후 재시도)")
+            + (f" — AI: {provider.provider_name}/{provider.default_model}" if llm_used else ". (LLM 미실행)")
         )
         return ReorganizationPlan(
             plan_id=plan_id,

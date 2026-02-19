@@ -32,7 +32,18 @@ class Settings(BaseSettings):
     )
     sqlite_db_path: Path = Field(default=Path("./data/lih.db"), description="SQLite DB 경로")
 
-    # LLM (Ollama)
+    # LLM Provider 선택 (openai / ollama)
+    llm_provider: str = Field(
+        default="openai", description="LLM 백엔드 (openai 또는 ollama)"
+    )
+
+    # OpenAI
+    openai_api_key: str = Field(default="", description="OpenAI API 키")
+    openai_chat_model: str = Field(
+        default="gpt-4o-mini", description="OpenAI 채팅 모델"
+    )
+
+    # LLM (Ollama) - 폴백 / 로컬 전용
     ollama_base_url: str = Field(
         default="http://localhost:11434", description="Ollama API 베이스 URL"
     )

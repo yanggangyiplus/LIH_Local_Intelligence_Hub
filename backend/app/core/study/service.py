@@ -1,17 +1,17 @@
 """
 Study & Context Engine 서비스.
-개념 추출, 요약, 질문 생성, 학습 계획, 개념 연결.
+개념 추출, 요약, 질문 생성, 학습 계획, 면접 질문.
+LLM Provider 추상화 레이어를 통해 OpenAI/Ollama 자동 선택.
 """
 
 import json
 from pathlib import Path
 from typing import Any, Optional
 
-from ollama import AsyncClient
-
 from app.core.config import get_settings
 from app.core.indexing.extractor import TextExtractor
 from app.core.indexing.indexer import KnowledgeIndexer
+from app.core.llm.provider import get_llm_provider
 from app.core.logging_config import get_logger
 from app.core.retrieval.retriever import Retriever
 from app.models.schemas import ConceptExtractionResult, StudyPlanResult
@@ -20,20 +20,17 @@ logger = get_logger(__name__)
 
 
 class StudyService:
-    """학습 및 컨텍스트 엔진."""
+    """학습 및 컨텍스트 엔진. LLM Provider 추상화 사용."""
 
     def __init__(self) -> None:
         self.settings = get_settings()
         self.extractor = TextExtractor()
         self.indexer = KnowledgeIndexer()
         self.retriever = Retriever()
-        self._client: Optional[AsyncClient] = None
 
     @property
-    def client(self) -> AsyncClient:
-        if self._client is None:
-            self._client = AsyncClient(host=self.settings.ollama_base_url)
-        return self._client
+    def llm(self):
+        return get_llm_provider()
 
     async def extract_concepts(self, root_path: str, options: dict[str, Any] | None = None) -> ConceptExtractionResult:
         """선택 폴더에서 핵심 개념 추출."""
@@ -59,11 +56,7 @@ class StudyService:
 [{{"id": "c1", "name": "개념명", "description": "설명", "relevance": 4}}, ...]"""
 
         try:
-            response = await self.client.chat(
-                model=self.settings.ollama_chat_model,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            content = getattr(response.message, "content", "") or ""
+            content = await self.llm.chat([{"role": "user", "content": prompt}])
             arr = _extract_json_array(content)
             concepts = arr if isinstance(arr, list) else []
             file_links: dict[str, list[str]] = {}
@@ -92,11 +85,7 @@ class StudyService:
 {context[:6000]}"""
 
         try:
-            response = await self.client.chat(
-                model=self.settings.ollama_chat_model,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            return getattr(response.message, "content", "") or "요약을 생성할 수 없습니다."
+            return await self.llm.chat([{"role": "user", "content": prompt}])
         except Exception as e:
             logger.error("요약 생성 실패", error=str(e))
             return f"요약 생성 중 오류: {e}"
@@ -115,11 +104,7 @@ JSON 배열로 출력하세요: [{{"question": "질문", "type": "multiple_choic
 {context[:5000]}"""
 
         try:
-            response = await self.client.chat(
-                model=self.settings.ollama_chat_model,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            content = getattr(response.message, "content", "") or ""
+            content = await self.llm.chat([{"role": "user", "content": prompt}])
             arr = _extract_json_array(content)
             return arr if isinstance(arr, list) else []
         except Exception as e:
@@ -140,11 +125,7 @@ JSON 배열: [{{"question": "질문", "hint": "힌트", "expected_answer": "예�
 {context[:5000]}"""
 
         try:
-            response = await self.client.chat(
-                model=self.settings.ollama_chat_model,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            content = getattr(response.message, "content", "") or ""
+            content = await self.llm.chat([{"role": "user", "content": prompt}])
             arr = _extract_json_array(content)
             return arr if isinstance(arr, list) else []
         except Exception as e:
@@ -165,11 +146,7 @@ JSON 배열: [{{"question": "질문", "hint": "힌트", "expected_answer": "예�
 출력 (JSON 배열만):"""
 
         try:
-            response = await self.client.chat(
-                model=self.settings.ollama_chat_model,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            content = getattr(response.message, "content", "") or ""
+            content = await self.llm.chat([{"role": "user", "content": prompt}])
             arr = _extract_json_array(content)
             plan = arr if isinstance(arr, list) else []
             total = sum(p.get("estimated_minutes", 0) for p in plan if isinstance(p, dict))

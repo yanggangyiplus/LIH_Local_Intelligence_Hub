@@ -1,3 +1,5 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -6,9 +8,9 @@
   font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   line-height: 1.6;
   font-weight: 400;
-  color-scheme: light dark;
-  color: #ffffff;
-  background-color: #374151;
+  color-scheme: dark;
+  color: #e2e8f0;
+  background-color: #0f172a;
 }
 
 * {
@@ -19,6 +21,7 @@
 
 body {
   min-height: 100vh;
+  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
 }
 
 #root {
@@ -26,10 +29,114 @@ body {
 }
 
 a {
-  color: #93c5fd;
+  color: #818cf8;
   text-decoration: none;
 }
 
 a:hover {
   text-decoration: underline;
+}
+
+/* 글래스모피즘 유틸리티 */
+@layer components {
+  .glass {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10 shadow-lg;
+  }
+
+  .glass-strong {
+    @apply bg-white/10 backdrop-blur-2xl border border-white/15 shadow-xl;
+  }
+
+  .glass-card {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-lg;
+  }
+
+  .glass-card-hover {
+    @apply glass-card transition-all duration-300 hover:bg-white/10 hover:border-white/20 hover:shadow-xl hover:-translate-y-0.5;
+  }
+
+  .gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400;
+  }
+
+  .gradient-border {
+    @apply border border-transparent bg-clip-padding;
+    background-image: linear-gradient(rgba(15,23,42,0.8), rgba(15,23,42,0.8)),
+                      linear-gradient(135deg, #6366f1, #a855f7, #ec4899);
+    background-origin: padding-box, border-box;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-2.5 
+           bg-gradient-to-r from-indigo-600 to-purple-600 
+           text-white font-medium rounded-xl 
+           shadow-lg shadow-indigo-500/25
+           hover:from-indigo-500 hover:to-purple-500 
+           hover:shadow-xl hover:shadow-indigo-500/30
+           active:scale-[0.98]
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-lg
+           transition-all duration-200;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 
+           bg-white/10 text-white font-medium rounded-xl border border-white/10
+           hover:bg-white/15 hover:border-white/20
+           active:scale-[0.98]
+           disabled:opacity-50 disabled:cursor-not-allowed
+           transition-all duration-200;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 
+           text-gray-300 rounded-xl 
+           hover:bg-white/10 hover:text-white
+           active:scale-[0.98]
+           transition-all duration-200;
+  }
+
+  .input-glass {
+    @apply w-full px-4 py-2.5 
+           bg-white/5 border border-white/10 rounded-xl 
+           text-white placeholder-gray-500
+           focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50
+           transition-all duration-200;
+  }
+}
+
+/* 스크롤바 커스텀 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* 애니메이션 */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
 }

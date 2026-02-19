@@ -3,7 +3,11 @@ API 의존성.
 """
 
 from pathlib import Path
+from typing import AsyncGenerator
 
+import aiosqlite
+
+from app.services.database import get_db_path
 from app.utils.safe_file_ops import PathSecurityError, create_safe_ops_for_root
 
 
@@ -16,3 +20,9 @@ def validate_root_path(path: str) -> Path:
         raise ValueError(f"디렉토리만 허용됩니다: {path}")
     create_safe_ops_for_root(p)  # 보안 검증
     return p
+
+
+async def get_db() -> AsyncGenerator[aiosqlite.Connection, None]:
+    """요청별 DB 연결 의존성."""
+    async with aiosqlite.connect(str(get_db_path())) as db:
+        yield db

@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import file_intelligence, knowledge, study, system
+from app.api.routes import dashboard, file_intelligence, knowledge, settings_api, study, system
 from app.core.config import get_settings
 from app.core.logging_config import configure_logging, get_logger
 from app.services.database import init_db
@@ -54,8 +54,10 @@ def create_app() -> FastAPI:
     )
 
     # API 라우트
+    app.include_router(dashboard.router, prefix="/api/v1")
     app.include_router(file_intelligence.router, prefix="/api/v1")
     app.include_router(knowledge.router, prefix="/api/v1")
+    app.include_router(settings_api.router, prefix="/api/v1")
     app.include_router(study.router, prefix="/api/v1")
     app.include_router(system.router, prefix="/api/v1")
 

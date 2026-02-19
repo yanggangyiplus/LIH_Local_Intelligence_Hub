@@ -1,79 +1,73 @@
 # Local Intelligence Hub (LIH)
 
-LIH(Local Intelligence Hub)는 사용자의 로컬 파일 시스템을 직접 인덱싱하여 문서, 프로젝트, 개인 자료를 AI가 이해하고 관리할 수 있도록 설계된 **로컬 우선(Local-first) AI 시스템**입니다.
+**Privacy-First AI Workspace** — 로컬 파일 기반 AI 정리·검색·학습 플랫폼
 
-클라우드 업로드나 외부 데이터 전송 없이, 로컬 파일만을 기반으로 RAG(Retrieval-Augmented Generation) 구조를 적용해 **의미 기반 검색**과 **질의응답**을 제공합니다. 또한 파일과 폴더의 구조·내용·메타데이터를 분석하여 정리 계획(이동, 리네이밍, 중복 정리 등)을 생성하고, 사용자 확인 후 실제 파일 정리까지 실행할 수 있는 구조를 목표로 합니다.
+> 클라우드 업로드 없이, 로컬 파일만으로 AI 기반 파일 정리, 지식 검색(RAG), 학습 지원을 제공합니다.
 
-LIH는 단순한 AI 검색 도구가 아니라, **이해 → 판단 → 계획 → 실행 → 되돌리기(Undo)** 흐름을 고려한, 실제 업무 환경에서 사용 가능한 **로컬 AI 워크스페이스**를 지향합니다.
+## 핵심 가치
+
+| 가치 | 설명 |
+|------|------|
+| **프라이버시** | 파일, 임베딩, 벡터 DB 로컬 처리. 외부 전송 없음 |
+| **하이브리드 AI** | OpenAI GPT + 로컬 Ollama. 사용자가 선택 |
+| **안전한 실행** | 이해→계획→미리보기→확인→실행→되돌리기(Undo) |
+| **즉시 시작** | 설치 후 3분이면 첫 AI 분석 가능 |
 
 ## 고객 문제점과 해결방안
 
 | 대상 | 문제 | LIH 해결방안 |
 |------|------|--------------|
-| 로컬 파일이 복잡하게 쌓인 개발자·기획자·학생·이용자 | 정리 어려움, 검색 비효율 | 로컬 파일 인덱싱 → RAG 기반 의미 검색·질의응답 제공. 파일 내용·맥락 분석으로 프로젝트·주제 단위 정리 계획 제안. 정리 과정을 AI가 설명해 **사용자의 이해와 통제** 확보 |
-| 보안·프라이버시 제약으로 클라우드 AI 사용이 어려운 사용자 | 외부 전송 불가 | **완전 로컬 처리**: 파일, 임베딩, 벡터 DB, AI 추론까지 모두 로컬. 외부 데이터 전송 없는 안전한 AI 활용 환경 |
-| 파일 정리를 자동화하고 싶은 파워 유저 | 수동 정리 부담 | AI가 정리 Plan(미리보기)을 생성해 사전 제시 → 승인된 작업만 Apply Engine으로 실제 파일 시스템에 반영. 모든 작업 기록 저장으로 **Undo(되돌리기)** 가능 |
+| 로컬 파일이 복잡하게 쌓인 개발자·학생 | 정리 어려움, 검색 비효율 | AI 기반 의미 검색 + 자동 정리 계획 |
+| 보안·프라이버시 제약 사용자 | 클라우드 AI 사용 불가 | 완전 로컬 처리 옵션 |
+| 파일 정리를 자동화하고 싶은 사용자 | 수동 정리 부담 | AI 계획 생성 → 미리보기 → 승인 후 실행 |
 
-모든 데이터 처리(파일, 임베딩, 벡터 DB, AI 추론)를 로컬에서 수행하여 보안과 프라이버시를 보장합니다.
+## 3대 핵심 엔진
 
-## 핵심 엔진
+### 1. File Intelligence Engine
+폴더 스캔 → AI 분석 → 정리 계획(이동/리네이밍/중복 정리) → 미리보기 → 승인 후 실행 → Undo
 
-1. **File Intelligence Engine** - 폴더 스캔, 중복/패턴 분석, AI 정리 계획 생성, 미리보기, 승인 후 실행, 작업 로그 기록(Undo 지원 설계)
-2. **Local Knowledge Engine (RAG)** - ChromaDB + Ollama 기반 시맨틱 검색 및 질의응답
-3. **Study & Context Engine** - 개념 추출, 요약, 질문/학습 계획 생성
+### 2. Local Knowledge Engine (RAG)
+ChromaDB + OpenAI/Ollama 기반 시맨틱 검색. 스트리밍 채팅 UI로 실시간 질의응답.
 
-## 주요 기능 (상세)
+### 3. Study & Context Engine
+핵심 개념 추출, 자동 요약, 학습 질문 생성, 면접 질문, 학습 계획. 플래시카드 UI.
 
-아래 기능이 모두 구현·지원됩니다.
+## 수익 모델 (SaaS)
 
-| 구분 | 기능 | 설명 |
-|------|------|------|
-| **인덱싱·검색** | 로컬 파일 인덱싱 | 사용자 지정 폴더의 문서, 프로젝트, 개인 자료를 인덱싱해 AI가 이해·검색 가능하게 함 |
-| | RAG 기반 의미 검색 | 클라우드 업로드 없이 로컬 파일만으로 의미 기반 검색 |
-| | 질의응답 | 파일 내용·맥락을 반영한 질의응답 (Ollama LLM + ChromaDB) |
-| | 프로젝트·주제 단위 검색 | 파일 내용과 맥락 분석으로 주제/프로젝트 단위 검색 지원 |
-| **파일 정리** | 구조·내용·메타데이터 분석 | 파일·폴더의 구조, 내용, 메타데이터를 분석 |
-| | AI 정리 계획 생성 | 이동, 리네이밍, 중복 정리 등 정리 계획(Plan) 자동 생성 |
-| | 미리보기·사용자 확인 | 계획을 미리보기로 제시 후, 사용자 확인·승인 시에만 반영 |
-| | Apply Engine 실행 | 승인된 작업만 실제 파일 시스템에 반영 (Safe file ops) |
-| | 정리 과정 설명 | AI가 정리 이유·과정을 설명해 사용자 이해와 통제 확보 |
-| **안전·복원** | 이해→판단→계획→실행→Undo | 전체 흐름: 이해 → 판단 → 계획 → 미리보기 → 확인 → 실행 |
-| | 작업 로그·Undo | 모든 작업 기록 저장, 되돌리기(Undo) 지원 구조 |
-| **보안·프라이버시** | 완전 로컬 처리 | 파일, 임베딩, 벡터 DB, AI 추론까지 모두 로컬에서 수행 |
-| | 외부 전송 없음 | 클라우드 업로드·외부 데이터 전송 없이 동작 |
+| Free | Pro (월 9,900원) | Enterprise |
+|------|------------------|------------|
+| Ollama 로컬 AI | OpenAI GPT-4o-mini/4o | Pro 전체 + 팀 기능 |
+| 월 5회 스캔 | 무제한 | SSO / 접근 제어 |
+| 월 20회 질의 | 스트리밍 채팅 | 온프레미스 배포 |
+| 기본 학습 | 고급 분석 + 면접 | SLA / 전담 지원 |
 
-## 특징 요약
+## AI 활용 (OpenAI API)
 
-- **로컬 파일 인덱싱 및 RAG** - 프로젝트·주제 단위 의미 검색, 파일 내용과 맥락 기반 질의응답
-- **파일 정리 자동화** - AI가 정리 계획(Plan)을 생성하고 미리보기 후, 사용자 승인 시에만 실제 파일 시스템에 반영
-- **완전 로컬 실행** - 임베딩, 벡터 DB, LLM 추론까지 모두 로컬에서 처리, 외부 데이터 전송 없음
-- **안전한 실행 흐름** - 이해 → 판단 → 계획 → 미리보기 → 확인 → 실행, 작업 로그 저장으로 복원(Undo) 지원 구조
+- **GPT-4o-mini**: RAG 질의응답, 파일 정리 계획, 학습 콘텐츠 생성
+- **스트리밍 응답**: SSE 기반 실시간 토큰 스트리밍
+- **하이브리드**: OpenAI ↔ Ollama 런타임 전환 (설정 페이지)
+- **로컬 임베딩**: sentence-transformers / Ollama nomic-embed-text
 
 ## 기술 스택
 
-- **Backend:** Python 3.11+, FastAPI, ChromaDB, Ollama
-- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS
-- **Desktop:** Tauri 2 (선택)
+- **Backend**: Python 3.11+, FastAPI, ChromaDB, OpenAI API, Ollama
+- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, Framer Motion
+- **Desktop**: Tauri 2 (선택)
+- **배포**: Docker / Docker Compose
 
 ## 빠른 시작
 
-### 1. Ollama 설치 및 모델 준비
-
-```bash
-ollama pull nomic-embed-text
-ollama pull llama3.2
-```
-
-### 2. Backend 실행
+### 1. Backend
 
 ```bash
 cd backend
 pip install -e .
-cp .env.example .env   # 선택
+cp .env.example .env
+# .env에 OPENAI_API_KEY 입력
 python -m app.main
 ```
 
-### 3. Frontend 실행
+### 2. Frontend
 
 ```bash
 cd frontend
@@ -81,9 +75,15 @@ npm install
 npm run dev
 ```
 
-브라우저에서 http://localhost:3000 접속.
+http://localhost:3000 접속
 
-### 4. (선택) Tauri 데스크톱
+### 3. Docker (선택)
+
+```bash
+OPENAI_API_KEY=sk-... docker compose up --build
+```
+
+### 4. Tauri 데스크톱 (선택)
 
 ```bash
 cargo install tauri-cli
@@ -95,35 +95,27 @@ cd src-tauri && cargo tauri dev
 ```
 ├── backend/
 │   └── app/
-│       ├── core/           # 핵심 엔진
-│       │   ├── file_intelligence/
-│       │   ├── indexing/
-│       │   ├── retrieval/
-│       │   └── study/
-│       ├── api/            # FastAPI 라우트
-│       ├── models/         # 스키마
-│       ├── services/       # DB 등
-│       └── utils/          # Safe file ops
+│       ├── core/
+│       │   ├── llm/              # LLM Provider 추상화 (OpenAI/Ollama)
+│       │   ├── file_intelligence/ # 파일 스캔·분석·정리
+│       │   ├── indexing/          # RAG 인덱싱·임베딩
+│       │   ├── retrieval/         # 시맨틱 검색·답변 생성
+│       │   └── study/             # 학습 엔진
+│       ├── api/routes/            # REST API
+│       ├── models/                # Pydantic 스키마
+│       └── services/              # DB 관리
 ├── frontend/
 │   └── src/
-│       ├── pages/
-│       ├── components/
-│       ├── hooks/
-│       └── services/
-├── docs/
-│   ├── ARCHITECTURE.md     # 시스템 아키텍처
-│   └── WORKFLOW.md        # 예시 워크플로우
-└── src-tauri/             # Tauri 데스크톱
+│       ├── pages/                 # Dashboard, FileIntelligence, Knowledge, Study, Settings, Pricing, Landing
+│       ├── components/            # Layout, FolderPathInput 등
+│       └── services/              # API 클라이언트
+├── docker-compose.yml
+└── src-tauri/                     # Tauri 데스크톱
 ```
 
 ## API 문서
 
 Backend 실행 후 http://localhost:8000/docs 에서 Swagger UI 확인.
-
-## 문서
-
-- [ARCHITECTURE.md](docs/ARCHITECTURE.md) - 아키텍처, API 설계, 보안/성능 고려사항
-- [WORKFLOW.md](docs/WORKFLOW.md) - 예시 워크플로우 및 cURL 예시
 
 ## 라이선스
 

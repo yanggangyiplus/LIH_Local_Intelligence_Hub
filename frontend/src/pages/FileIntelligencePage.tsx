@@ -1,14 +1,14 @@
 /**
- * 파일 인텔리전스: 스캔 → AI 정리 계획 → 미리보기 → 승인 후 적용. 작업 로그(Undo) 지원.
+ * 파일 인텔리전스: 스캔 → AI 정리 계획 → 미리보기 → 승인 후 적용 → Undo.
+ * 글래스모피즘 UI + 스텝 인디케이터 + toast 알림.
  */
 import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { fileIntelligenceApi } from '../services/api';
-import FolderPathInput from '../components/FolderPathInput';
+import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
 import {
   FolderOpen,
   Loader2,
-  CheckCircle,
   Eye,
   PlayCircle,
   FilePen,
@@ -19,7 +19,11 @@ import {
   File,
   ChevronRight,
   Undo2,
+  Sparkles,
+  Search,
 } from 'lucide-react';
+import { fileIntelligenceApi } from '../services/api';
+import FolderPathInput from '../components/FolderPathInput';
 
 interface PlanAction {
   action_type: string;
@@ -35,20 +39,46 @@ interface Plan {
   summary?: string;
 }
 
-/** 경로에서 파일/폴더명만 추출 */
 function getDisplayName(path: string): string {
   const parts = path.replace(/\/$/, '').split('/');
   return parts[parts.length - 1] || path;
 }
 
-/** 작업 유형별 아이콘·라벨·색상 */
-const ACTION_STYLE: Record<string, { icon: React.ReactNode; label: string; bg: string; text: string }> = {
-  rename: { icon: <FilePen size={16} />, label: '이름 변경', bg: 'bg-amber-900/50', text: 'text-amber-200' },
-  move: { icon: <ArrowRight size={16} />, label: '이동', bg: 'bg-blue-900/50', text: 'text-blue-200' },
-  delete_duplicate: { icon: <Trash2 size={16} />, label: '중복 삭제', bg: 'bg-red-900/50', text: 'text-red-200' },
-  create_folder: { icon: <FolderPlus size={16} />, label: '폴더 생성', bg: 'bg-emerald-900/50', text: 'text-emerald-200' },
-  archive: { icon: <Archive size={16} />, label: '보관', bg: 'bg-violet-900/50', text: 'text-violet-200' },
+const ACTION_STYLE: Record<string, { icon: React.ReactNode; label: string; gradient: string }> = {
+  rename: { icon: <FilePen size={14} />, label: '이름 변경', gradient: 'from-amber-500 to-orange-500' },
+  move: { icon: <ArrowRight size={14} />, label: '이동', gradient: 'from-blue-500 to-cyan-500' },
+  delete_duplicate: { icon: <Trash2 size={14} />, label: '중복 삭제', gradient: 'from-red-500 to-rose-500' },
+  create_folder: { icon: <FolderPlus size={14} />, label: '폴더 생성', gradient: 'from-emerald-500 to-green-500' },
+  archive: { icon: <Archive size={14} />, label: '보관', gradient: 'from-violet-500 to-purple-500' },
 };
+
+/** 단계 인디케이터 */
+function StepIndicator({ currentStep }: { currentStep: number }) {
+  const steps = ['스캔', '계획 생성', '미리보기', '적용'];
+  return (
+    <div className="flex items-center gap-2 mb-6">
+      {steps.map((label, i) => {
+        const step = i + 1;
+        const active = step <= currentStep;
+        return (
+          <div key={label} className="flex items-center gap-2">
+            <div className={`flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold transition-all ${
+              active
+                ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/30'
+                : 'bg-white/5 text-gray-500 border border-white/10'
+            }`}>
+              {step}
+            </div>
+            <span className={`text-xs hidden sm:block ${active ? 'text-white' : 'text-gray-500'}`}>{label}</span>
+            {i < steps.length - 1 && (
+              <div className={`w-8 h-0.5 rounded ${active ? 'bg-indigo-500' : 'bg-white/10'}`} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function FileIntelligencePage() {
   const [rootPath, setRootPath] = useState('');
@@ -59,13 +89,18 @@ export default function FileIntelligencePage() {
   const [previewResult, setPreviewResult] = useState<{ actions_count: number; logs?: Array<{ source_path: string; target_path?: string; operation_type: string }> } | null>(null);
   const [applied, setApplied] = useState(false);
 
+  const currentStep = applied ? 4 : previewResult ? 3 : plan ? 2 : scanJobId ? 1 : 0;
+
   const scanMutation = useMutation({
     mutationFn: () => fileIntelligenceApi.scan(rootPath),
     onSuccess: (res) => {
       setScanJobId(res.data.job_id);
       setPlan(null);
       setPreviewResult(null);
+      setApplied(false);
+      toast.success('스캔 완료!');
     },
+    onError: () => toast.error('스캔 실패'),
   });
 
   const planMutation = useMutation({
@@ -73,44 +108,38 @@ export default function FileIntelligencePage() {
     onSuccess: (res) => {
       setPlan(res.data);
       setPreviewResult(null);
+      toast.success(`AI 정리 계획 생성 완료 (${res.data.actions?.length || 0}개 작업)`);
     },
-    enabled: !!scanJobId,
+    onError: () => toast.error('계획 생성 실패'),
   });
 
   const previewMutation = useMutation({
     mutationFn: () => fileIntelligenceApi.preview(plan!.plan_id),
-    onSuccess: (res) => setPreviewResult(res.data),
-    onError: () => setPreviewResult(null),
-    enabled: !!plan,
+    onSuccess: (res) => {
+      setPreviewResult(res.data);
+      toast.success('미리보기 완료');
+    },
   });
 
   const applyMutation = useMutation({
-    mutationFn: () =>
-      fileIntelligenceApi.apply(plan!.plan_id, [], false, true),
+    mutationFn: () => fileIntelligenceApi.apply(plan!.plan_id, [], false, true),
     onSuccess: (res) => {
       setPreviewResult(null);
       if (res.data?.applied) {
         setApplied(true);
-        alert(`적용 완료 (${res.data.logs_count}개 작업)`);
+        toast.success(`적용 완료 (${res.data.logs_count}개 작업)`);
       }
     },
-    onError: (err) => {
-      alert(err instanceof Error ? err.message : '적용 실패');
-    },
-    enabled: !!plan,
+    onError: (err) => toast.error(err instanceof Error ? err.message : '적용 실패'),
   });
 
   const undoMutation = useMutation({
     mutationFn: () => fileIntelligenceApi.undo(plan!.plan_id),
     onSuccess: (res) => {
-      const d = res.data;
       setApplied(false);
-      alert(`되돌리기 완료: ${d.undone_count}/${d.total}개 작업 복원`);
+      toast.success(`되돌리기 완료: ${res.data.undone_count}/${res.data.total}개 복원`);
     },
-    onError: (err) => {
-      alert(err instanceof Error ? err.message : '되돌리기 실패');
-    },
-    enabled: !!plan,
+    onError: (err) => toast.error(err instanceof Error ? err.message : '되돌리기 실패'),
   });
 
   const { data: scanResult } = useQuery({
@@ -120,229 +149,196 @@ export default function FileIntelligencePage() {
   });
 
   return (
-    <div className="space-y-8">
-      <header>
-        <h2 className="text-2xl font-bold text-white">파일 인텔리전스</h2>
-        <p className="text-gray-300 mt-1">
-          폴더를 스캔하고 AI가 제안하는 정리 계획을 생성합니다. 적용 전 미리보기를 확인하세요.
-        </p>
-      </header>
+    <div className="space-y-6 max-w-5xl">
+      <StepIndicator currentStep={currentStep} />
 
-      <section className="bg-gray-800 rounded-xl border border-gray-600 p-6">
-        <h3 className="font-semibold text-white mb-4">1. 폴더 스캔</h3>
-        <div className="flex gap-4 flex-wrap">
+      {/* 1. 폴더 스캔 */}
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass-card p-6"
+      >
+        <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
+          <Search size={18} className="text-indigo-400" />
+          1. 폴더 스캔
+        </h3>
+        <div className="flex gap-3 flex-wrap">
           <div className="flex-1 min-w-[200px]">
-            <FolderPathInput
-              value={rootPath}
-              onChange={setRootPath}
-              placeholder="스캔할 폴더 경로 (예: /Users/me/Documents)"
-            />
+            <FolderPathInput value={rootPath} onChange={setRootPath} placeholder="스캔할 폴더 경로 (예: /Users/me/Documents)" />
           </div>
-          <button
-            onClick={() => scanMutation.mutate()}
-            disabled={!rootPath.trim() || scanMutation.isPending}
-            className="flex items-center justify-center gap-2 px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 shrink-0"
-          >
+          <button onClick={() => scanMutation.mutate()} disabled={!rootPath.trim() || scanMutation.isPending} className="btn-primary shrink-0">
             {scanMutation.isPending ? <Loader2 size={18} className="animate-spin" /> : <FolderOpen size={18} />}
             스캔
           </button>
         </div>
-        {scanMutation.isError && (
-          <p className="text-red-400 mt-2 text-sm">
-            {(scanMutation.error as Error).message}
-          </p>
-        )}
-      </section>
+      </motion.section>
 
-      {scanJobId && scanResult && (
-        <section className="bg-gray-800 rounded-xl border border-gray-600 p-6">
-          <h3 className="font-semibold text-white mb-4">2. 스캔 결과</h3>
-          <div className="grid grid-cols-3 gap-4 mb-4">
-            <div className="p-4 bg-gray-700 rounded-lg">
-              <p className="text-sm text-gray-300">파일 수</p>
-              <p className="text-xl font-semibold text-white">{scanResult.total_files}</p>
+      {/* 2. 스캔 결과 */}
+      <AnimatePresence>
+        {scanJobId && scanResult && (
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="glass-card p-6"
+          >
+            <h3 className="font-semibold text-white mb-4">2. 스캔 결과</h3>
+            <div className="grid grid-cols-3 gap-3 mb-5">
+              {[
+                { label: '파일 수', value: scanResult.total_files },
+                { label: '폴더 수', value: scanResult.total_dirs },
+                { label: '총 크기', value: `${(scanResult.total_size_bytes / 1024 / 1024).toFixed(1)} MB` },
+              ].map(({ label, value }) => (
+                <div key={label} className="p-3 rounded-xl bg-white/5 border border-white/5">
+                  <p className="text-xs text-gray-400">{label}</p>
+                  <p className="text-lg font-bold text-white">{value}</p>
+                </div>
+              ))}
             </div>
-            <div className="p-4 bg-gray-700 rounded-lg">
-              <p className="text-sm text-gray-300">폴더 수</p>
-              <p className="text-xl font-semibold text-white">{scanResult.total_dirs}</p>
-            </div>
-            <div className="p-4 bg-gray-700 rounded-lg">
-              <p className="text-sm text-gray-300">총 크기</p>
-              <p className="text-xl font-semibold text-white">
-                {(scanResult.total_size_bytes / 1024 / 1024).toFixed(1)} MB
-              </p>
-            </div>
-          </div>
-          <div className="space-y-3">
-            <div className="flex flex-wrap gap-4 items-center">
-              <label className="flex items-center gap-2 text-sm">
-                <span className="text-gray-300">정리 기준:</span>
-                <select
-                  value={organizeBy}
-                  onChange={(e) => setOrganizeBy(e.target.value as 'content' | 'name' | 'time')}
-                  className="px-3 py-1.5 border border-gray-500 rounded-lg text-white bg-gray-700"
-                >
-                  <option value="content">내용 (파일 내부 텍스트)</option>
-                  <option value="name">이름·확장자</option>
-                  <option value="time">시간 (수정 시각)</option>
+            <div className="flex flex-wrap gap-3 items-end">
+              <label className="flex flex-col gap-1">
+                <span className="text-xs text-gray-400">정리 기준</span>
+                <select value={organizeBy} onChange={(e) => setOrganizeBy(e.target.value as 'content' | 'name' | 'time')} className="input-glass py-2 text-sm w-44">
+                  <option value="content">내용 (텍스트 분석)</option>
+                  <option value="name">이름 / 확장자</option>
+                  <option value="time">수정 시각</option>
                 </select>
               </label>
-              <label className="flex items-center gap-2 text-sm">
-                <span className="text-gray-300">초점:</span>
-                <select
-                  value={focus}
-                  onChange={(e) => setFocus(e.target.value as 'names' | 'locations' | 'both')}
-                  className="px-3 py-1.5 border border-gray-500 rounded-lg text-white bg-gray-700"
-                >
+              <label className="flex flex-col gap-1">
+                <span className="text-xs text-gray-400">초점</span>
+                <select value={focus} onChange={(e) => setFocus(e.target.value as 'names' | 'locations' | 'both')} className="input-glass py-2 text-sm w-40">
                   <option value="names">이름만 개선</option>
                   <option value="locations">위치만 개선</option>
                   <option value="both">이름+위치 모두</option>
                 </select>
               </label>
+              <button onClick={() => planMutation.mutate()} disabled={planMutation.isPending} className="btn-primary">
+                {planMutation.isPending ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+                AI 정리 계획 생성
+              </button>
             </div>
-            <button
-              onClick={() => planMutation.mutate()}
-              disabled={planMutation.isPending}
-              className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-            >
-              {planMutation.isPending ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle size={18} />}
-              AI 정리 계획 생성
-            </button>
-          </div>
-        </section>
-      )}
+          </motion.section>
+        )}
+      </AnimatePresence>
 
-      {plan && (
-        <section className="bg-gray-800 rounded-xl border border-gray-600 p-6">
-          <h3 className="font-semibold text-white mb-4">3. 재구성 계획</h3>
-          {plan.summary && (
-            <p className="text-sm text-gray-300 mb-4">{plan.summary}</p>
-          )}
-          {plan.actions.length > 0 ? (
-            <>
-              {/* 작업 유형별 요약 */}
-              <div className="flex flex-wrap gap-2 mb-4">
-                {Object.entries(
-                  plan.actions.reduce<Record<string, number>>((acc, a) => {
-                    const t = a.action_type || 'unknown';
-                    acc[t] = (acc[t] ?? 0) + 1;
-                    return acc;
-                  }, {})
-                ).map(([type, count]) => {
-                  const style = ACTION_STYLE[type] ?? {
-                    icon: <File size={16} />,
-                    label: type,
-                    bg: 'bg-gray-600',
-                    text: 'text-gray-200',
-                  };
-                  return (
-                    <span
-                      key={type}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${style.bg} ${style.text} border border-gray-600`}
-                    >
-                      {style.icon}
-                      {style.label} {count}
-                    </span>
-                  );
-                })}
-              </div>
+      {/* 3. 재구성 계획 */}
+      <AnimatePresence>
+        {plan && (
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="glass-card p-6"
+          >
+            <h3 className="font-semibold text-white mb-2">3. AI 정리 계획</h3>
+            {plan.summary && <p className="text-sm text-gray-400 mb-4">{plan.summary}</p>}
 
-              {/* 시각화된 작업 카드 목록 */}
-              <div className="space-y-3 max-h-80 overflow-y-auto mb-4">
-                {plan.actions.map((a, i) => {
-                  const style = ACTION_STYLE[a.action_type] ?? {
-                    icon: <File size={16} />,
-                    label: a.action_type,
-                    bg: 'bg-gray-600',
-                    text: 'text-gray-200',
-                  };
-                  return (
-                    <div
-                      key={i}
-                      className="flex items-center gap-3 p-4 rounded-xl border border-gray-600 bg-gray-700/50 hover:bg-gray-700 transition-colors"
-                    >
-                      <span className={`flex items-center gap-1.5 shrink-0 px-2.5 py-1 rounded-lg text-xs font-medium ${style.bg} ${style.text}`}>
-                        {style.icon}
-                        {style.label}
+            {plan.actions.length > 0 ? (
+              <>
+                {/* 유형별 요약 뱃지 */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {Object.entries(
+                    plan.actions.reduce<Record<string, number>>((acc, a) => {
+                      acc[a.action_type] = (acc[a.action_type] ?? 0) + 1;
+                      return acc;
+                    }, {})
+                  ).map(([type, count]) => {
+                    const style = ACTION_STYLE[type] ?? { icon: <File size={14} />, label: type, gradient: 'from-gray-500 to-gray-600' };
+                    return (
+                      <span key={type} className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r ${style.gradient} text-white shadow-sm`}>
+                        {style.icon} {style.label} {count}
                       </span>
-                      <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
-                        {a.source_path && (
-                          <>
-                            <span className="truncate text-white font-mono text-sm" title={a.source_path}>
-                              {getDisplayName(a.source_path)}
-                            </span>
-                            {a.target_path ? (
-                              <>
-                                <ChevronRight size={16} className="shrink-0 text-gray-400" />
-                                <span className="truncate text-gray-300 font-mono text-sm" title={a.target_path}>
-                                  {getDisplayName(a.target_path)}
-                                </span>
-                              </>
-                            ) : (
-                              <span className="text-gray-400 text-xs">(삭제 예정)</span>
-                            )}
-                          </>
-                        )}
-                        {!a.source_path && a.target_path && (
-                          <span className="text-gray-300 font-mono text-sm" title={a.target_path}>
-                            새 폴더: {getDisplayName(a.target_path)}
-                          </span>
-                        )}
-                      </div>
-                      {a.reason && (
-                        <span className="shrink-0 text-xs text-gray-400 max-w-[140px] truncate" title={a.reason}>
-                          {a.reason}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => previewMutation.mutate()}
-                  disabled={previewMutation.isPending}
-                  className="flex items-center gap-2 px-5 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500 disabled:opacity-50"
-                >
-                  {previewMutation.isPending ? <Loader2 size={18} className="animate-spin" /> : <Eye size={18} />}
-                  미리보기
-                </button>
-                <button
-                  onClick={() => window.confirm('정말 파일 정리를 적용할까요? 적용 후 파일이 이동/삭제됩니다.') && applyMutation.mutate()}
-                  disabled={applyMutation.isPending || applied}
-                  className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-                >
-                  {applyMutation.isPending ? <Loader2 size={18} className="animate-spin" /> : <PlayCircle size={18} />}
-                  적용
-                </button>
-                {applied && (
-                  <button
-                    onClick={() => window.confirm('적용된 파일 정리를 되돌릴까요?') && undoMutation.mutate()}
-                    disabled={undoMutation.isPending}
-                    className="flex items-center gap-2 px-5 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
-                  >
-                    {undoMutation.isPending ? <Loader2 size={18} className="animate-spin" /> : <Undo2 size={18} />}
-                    되돌리기 (Undo)
-                  </button>
-                )}
-              </div>
-              {previewResult && (
-                <div className="mt-4 p-4 bg-gray-700 rounded-lg text-sm">
-                  <p className="font-medium text-white mb-2">미리보기 결과 ({previewResult.actions_count}개 작업)</p>
-                  {previewResult.logs?.map((log, i) => (
-                    <p key={i} className="text-gray-300">
-                      {log.operation_type}: {log.source_path}
-                      {log.target_path && ` → ${log.target_path}`}
-                    </p>
-                  ))}
+                    );
+                  })}
                 </div>
-              )}
-            </>
-          ) : (
-            <p className="text-sm text-gray-400">제안할 정리 작업이 없습니다.</p>
-          )}
-        </section>
-      )}
+
+                {/* 작업 카드 목록 */}
+                <div className="space-y-2 max-h-72 overflow-y-auto mb-4 pr-1">
+                  {plan.actions.map((a, i) => {
+                    const style = ACTION_STYLE[a.action_type] ?? { icon: <File size={14} />, label: a.action_type, gradient: 'from-gray-500 to-gray-600' };
+                    return (
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.03 }}
+                        className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/8 transition-colors"
+                      >
+                        <span className={`inline-flex items-center gap-1 shrink-0 px-2 py-1 rounded-lg text-[10px] font-medium bg-gradient-to-r ${style.gradient} text-white`}>
+                          {style.icon} {style.label}
+                        </span>
+                        <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
+                          {a.source_path && (
+                            <>
+                              <span className="truncate text-white font-mono text-xs" title={a.source_path}>
+                                {getDisplayName(a.source_path)}
+                              </span>
+                              {a.target_path && (
+                                <>
+                                  <ChevronRight size={14} className="shrink-0 text-gray-500" />
+                                  <span className="truncate text-gray-300 font-mono text-xs" title={a.target_path}>
+                                    {getDisplayName(a.target_path)}
+                                  </span>
+                                </>
+                              )}
+                            </>
+                          )}
+                          {!a.source_path && a.target_path && (
+                            <span className="text-gray-300 font-mono text-xs">새 폴더: {getDisplayName(a.target_path)}</span>
+                          )}
+                        </div>
+                        {a.reason && (
+                          <span className="shrink-0 text-[10px] text-gray-500 max-w-[120px] truncate" title={a.reason}>{a.reason}</span>
+                        )}
+                      </motion.div>
+                    );
+                  })}
+                </div>
+
+                {/* 액션 버튼 */}
+                <div className="flex gap-3 flex-wrap">
+                  <button onClick={() => previewMutation.mutate()} disabled={previewMutation.isPending} className="btn-secondary">
+                    {previewMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Eye size={16} />}
+                    미리보기
+                  </button>
+                  <button
+                    onClick={() => { if (window.confirm('정말 파일 정리를 적용할까요?')) applyMutation.mutate(); }}
+                    disabled={applyMutation.isPending || applied}
+                    className="btn-primary"
+                  >
+                    {applyMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <PlayCircle size={16} />}
+                    적용
+                  </button>
+                  {applied && (
+                    <button
+                      onClick={() => { if (window.confirm('되돌릴까요?')) undoMutation.mutate(); }}
+                      disabled={undoMutation.isPending}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white font-medium rounded-xl shadow-lg hover:shadow-xl transition-all"
+                    >
+                      {undoMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Undo2 size={16} />}
+                      되돌리기
+                    </button>
+                  )}
+                </div>
+
+                {/* 미리보기 결과 */}
+                {previewResult && (
+                  <div className="mt-4 p-4 rounded-xl bg-white/5 border border-white/5 text-sm">
+                    <p className="font-medium text-white mb-2">미리보기 ({previewResult.actions_count}개 작업)</p>
+                    {previewResult.logs?.map((log, i) => (
+                      <p key={i} className="text-gray-400 text-xs">
+                        {log.operation_type}: {log.source_path}{log.target_path && ` → ${log.target_path}`}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-gray-500">제안할 정리 작업이 없습니다.</p>
+            )}
+          </motion.section>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

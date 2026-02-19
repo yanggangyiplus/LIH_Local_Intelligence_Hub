@@ -1,6 +1,6 @@
 /**
  * API 클라이언트.
- * Backend FastAPI와 통신.
+ * Backend FastAPI와 통신. 모든 엔드포인트 타입 정의.
  */
 
 import axios from 'axios';
@@ -9,9 +9,15 @@ const API_BASE = '/api/v1';
 
 const api = axios.create({
   baseURL: API_BASE,
-  timeout: 60000,
+  timeout: 120000,
   headers: { 'Content-Type': 'application/json' },
 });
+
+/** Dashboard */
+export const dashboardApi = {
+  stats: () => api.get('/dashboard/stats'),
+  recentActivity: (limit = 10) => api.get(`/dashboard/recent-activity?limit=${limit}`),
+};
 
 /** File Intelligence */
 export const fileIntelligenceApi = {
@@ -63,12 +69,18 @@ export const studyApi = {
     api.post('/study/plan', { root_path: rootPath, options: {} }),
 };
 
+/** Settings */
+export const settingsApi = {
+  get: () => api.get('/settings'),
+  update: (data: { llm_provider?: string; openai_api_key?: string; openai_chat_model?: string }) =>
+    api.put('/settings', data),
+};
+
 /** System */
 export const systemApi = {
   health: () => api.get('/health'),
-  config: () => api.get('/config'),
+  config: () => api.get('/settings'),
   llmModels: () => api.get('/llm/models'),
-  /** 네이티브 폴더 선택 다이얼로그 (브라우저용) */
   pickFolder: () => api.get<{ path: string | null }>('/pick-folder'),
 };
 

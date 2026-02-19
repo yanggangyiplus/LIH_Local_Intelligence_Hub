@@ -1,15 +1,14 @@
 """
 RAG 질의응답 생성 모듈.
 
-로컬 검색된 컨텍스트 + Ollama LLM으로 파일 내용·맥락 기반 답변 생성.
-의미 기반 검색 결과를 활용. 스트리밍 지원. 완전 로컬 추론.
+검색된 컨텍스트 + LLM(OpenAI/Ollama)으로 파일 내용·맥락 기반 답변 생성.
+LLM Provider 추상화 레이어를 통해 백엔드 자동 선택.
 """
 
 from typing import AsyncGenerator, Optional
 
-from ollama import AsyncClient
-
 from app.core.config import get_settings
+from app.core.llm.provider import get_llm_provider
 from app.core.logging_config import get_logger
 from app.core.retrieval.retriever import Retriever
 from app.models.schemas import QueryChunk
@@ -26,29 +25,26 @@ RAG_SYSTEM_PROMPT = """당신은 로컬 파일 기반 지식 어시스턴트입�
 
 정말로 참조 문서에 전혀 관련 내용이 없을 때만 "제공된 문서에서는 해당 정보를 찾을 수 없습니다"라고 하세요.
 답변 시 출처를 [파일경로] 형식으로 명시하세요. 예: [README.md], [docs/ARCHITECTURE.md]
-한국어로 답변하세요.""" 
+한국어로 답변하세요."""
 
 
 class RAGGenerator:
-    """RAG 기반 질의응답 생성."""
+    """RAG 기반 질의응답 생성. LLM Provider 추상화 사용."""
 
     def __init__(self) -> None:
         self.settings = get_settings()
         self.retriever = Retriever()
-        self._client: Optional[AsyncClient] = None
 
     @property
-    def client(self) -> AsyncClient:
-        if self._client is None:
-            self._client = AsyncClient(host=self.settings.ollama_base_url)
-        return self._client
+    def llm(self):
+        return get_llm_provider()
 
     def _format_chunks_as_answer(self, query: str, chunks: list[QueryChunk]) -> str:
-        """Ollama 미사용 시 검색 결과를 요약 형태로 반환."""
+        """LLM 미사용 시 검색 결과를 요약 형태로 반환."""
         lines = [
             f"질문: {query}",
             "",
-            "⚠️ Ollama가 실행 중이지 않아 AI 요약을 생성할 수 없습니다. (ollama serve 실행 후 사용 가능)",
+            "⚠️ LLM이 실행 중이지 않아 AI 요약을 생성할 수 없습니다.",
             "",
             "--- 검색된 관련 문서 ---",
         ]
@@ -87,15 +83,14 @@ class RAGGenerator:
     ) -> tuple[str, list[QueryChunk], Optional[str]]:
         """
         RAG 답변 생성 (비스트리밍).
-        Returns:
-            (답변, 출처 청크 목록, 사용된 모델명)
+        Returns: (답변, 출처 청크 목록, 사용된 모델명)
         """
         chunks = self.retriever.search(query, top_k=top_k, scope=scope, scope_path=scope_path)
         if not chunks:
             return (
                 "검색된 관련 문서가 없습니다.\n"
-                "• 인덱싱을 먼저 완료했는지 확인해주세요. (로컬 지식 엔진 → 인덱싱 시작)\n"
-                "• 인덱싱이 완료된 후에도 검색이 안 되면, 질문을 다르게 표현해보거나 scope(폴더 범위)를 확인해주세요.",
+                "• 인덱싱을 먼저 완료했는지 확인해주세요.\n"
+                "• 질문을 다르게 표현해보거나 scope를 확인해주세요.",
                 [],
                 None,
             )
@@ -104,15 +99,10 @@ class RAGGenerator:
         messages = self._build_messages(query, context)
 
         try:
-            response = await self.client.chat(
-                model=self.settings.ollama_chat_model,
-                messages=messages,
-            )
-            content = getattr(response.message, "content", "") or ""
-            return content, chunks, self.settings.ollama_chat_model
+            content = await self.llm.chat(messages)
+            return content, chunks, self.llm.default_model
         except Exception as e:
-            logger.error("RAG 생성 실패 (Ollama 미실행), 검색 결과로 폴백", error=str(e))
-            # Ollama 미실행 시 검색된 청크를 요약 형태로 반환
+            logger.error("RAG 생성 실패, 검색 결과로 폴백", error=str(e))
             fallback = self._format_chunks_as_answer(query, chunks)
             return fallback, chunks, None
 
@@ -125,7 +115,7 @@ class RAGGenerator:
     ) -> AsyncGenerator[dict, None]:
         """
         RAG 답변 스트리밍 생성.
-        Yields: {"type": "sources", "chunks": [...]} | {"type": "token", "content": "..."} | {"type": "done"}
+        Yields: {"type": "sources", ...} | {"type": "token", ...} | {"type": "done"}
         """
         chunks = self.retriever.search(query, top_k=top_k, scope=scope, scope_path=scope_path)
         yield {
@@ -145,18 +135,11 @@ class RAGGenerator:
         messages = self._build_messages(query, context)
 
         try:
-            stream = self.client.chat(
-                model=self.settings.ollama_chat_model,
-                messages=messages,
-                stream=True,
-            )
-            async for part in stream:
-                content = getattr(part.message, "content", "") or ""
-                if content:
-                    yield {"type": "token", "content": content}
+            async for token in self.llm.chat_stream(messages):
+                yield {"type": "token", "content": token}
             yield {"type": "done"}
         except Exception as e:
-            logger.error("RAG 스트리밍 실패 (Ollama 미실행), 검색 결과로 폴백", error=str(e))
+            logger.error("RAG 스트리밍 실패, 검색 결과로 폴백", error=str(e))
             fallback = self._format_chunks_as_answer(query, chunks)
             yield {"type": "token", "content": fallback}
             yield {"type": "done"}
