@@ -1,5 +1,8 @@
 """
 File Intelligence API 라우트.
+
+흐름: 스캔(구조·내용·메타데이터) → AI 정리 계획 생성 → 미리보기 제시 → 사용자 확인
+→ 승인된 작업만 Apply 실행. 모든 작업 로그 저장(Undo 지원).
 """
 
 import uuid
@@ -32,7 +35,7 @@ class ScanRequest(BaseModel):
 
 @router.post("/scan")
 async def start_scan(req: ScanRequest) -> dict:
-    """폴더 스캔 시작. 동기 스캔 수행."""
+    """폴더 스캔: 구조·메타데이터 수집 (파일 정리 흐름의 1단계)."""
     try:
         root = Path(req.root_path).resolve()
         if not root.exists() or not root.is_dir():
@@ -68,7 +71,7 @@ class PlanRequest(BaseModel):
 
 @router.post("/plan")
 async def generate_plan(req: PlanRequest) -> ReorganizationPlan:
-    """스캔 결과 기반 AI 재구성 계획 생성."""
+    """AI 정리 계획(Plan) 생성. 이동·리네이밍·중복 정리 등, 정리 이유 제시."""
     if req.job_id not in _scan_cache:
         raise HTTPException(status_code=404, detail="스캔 결과를 찾을 수 없습니다.")
     scan = _scan_cache[req.job_id]
@@ -86,7 +89,7 @@ class PreviewRequest(BaseModel):
 
 @router.post("/preview")
 async def preview_changes(req: PreviewRequest) -> dict:
-    """변경 사항 미리보기 (dry_run)."""
+    """정리 계획 미리보기. 사용자 확인 후 승인 시에만 실제 반영 가능."""
     if req.plan_id not in _plan_cache:
         raise HTTPException(status_code=404, detail="계획을 찾을 수 없습니다.")
     plan = _plan_cache[req.plan_id]
@@ -98,7 +101,7 @@ async def preview_changes(req: PreviewRequest) -> dict:
 
 @router.post("/apply")
 async def apply_reorganization(req: ApplyReorganizationRequest) -> dict:
-    """재구성 적용. confirm=true일 때만 실제 적용."""
+    """Apply Engine: 승인된 작업만 실제 파일 시스템에 반영. 작업 로그 저장(Undo 지원)."""
     if req.plan_id not in _plan_cache:
         raise HTTPException(status_code=404, detail="계획을 찾을 수 없습니다.")
     if not req.confirm:
@@ -130,9 +133,49 @@ async def apply_reorganization(req: ApplyReorganizationRequest) -> dict:
     return {"applied": True, "dry_run": req.dry_run, "logs_count": len(logs)}
 
 
+@router.post("/undo/{plan_id}")
+async def undo_plan(plan_id: str) -> dict:
+    """Undo(되돌리기): plan_id에 해당하는 실행 완료 작업을 역순으로 되돌림."""
+    async with get_connection() as db:
+        db.row_factory = lambda c, r: dict(zip([col[0] for col in c.description], r))
+        cursor = await db.execute(
+            "SELECT * FROM reorganization_logs WHERE plan_id = ? AND dry_run = 0 ORDER BY executed_at ASC",
+            (plan_id,),
+        )
+        logs = await cursor.fetchall()
+
+    if not logs:
+        raise HTTPException(status_code=404, detail="해당 plan_id의 실행 이력이 없습니다.")
+
+    # root_path 복원: plan 캐시에 있으면 사용, 없으면 source_path에서 추론
+    root_path = None
+    if plan_id in _plan_cache:
+        root_path = Path(_plan_cache[plan_id].root_path)
+    else:
+        first_src = logs[0].get("source_path", "")
+        if first_src:
+            root_path = Path(first_src).parent
+        else:
+            first_tgt = logs[0].get("target_path", "")
+            root_path = Path(first_tgt).parent if first_tgt else None
+
+    if not root_path or not root_path.exists():
+        raise HTTPException(status_code=400, detail="루트 경로를 확인할 수 없습니다.")
+
+    undone = ReorganizationExecutor.undo_operations(logs, root_path)
+
+    # Undo 완료 후 해당 로그를 DB에서 삭제
+    async with get_connection() as db:
+        await db.execute("DELETE FROM reorganization_logs WHERE plan_id = ? AND dry_run = 0", (plan_id,))
+        await db.commit()
+
+    ok_count = sum(1 for u in undone if u.get("status") == "ok")
+    return {"plan_id": plan_id, "undone_count": ok_count, "total": len(undone), "details": undone}
+
+
 @router.get("/history")
 async def get_history(limit: int = 50) -> list:
-    """재구성 작업 이력 조회."""
+    """재구성 작업 이력 조회. Undo(되돌리기) 지원용 로그."""
     async with get_connection() as db:
         db.row_factory = lambda c, r: dict(zip([col[0] for col in c.description], r))
         cursor = await db.execute(

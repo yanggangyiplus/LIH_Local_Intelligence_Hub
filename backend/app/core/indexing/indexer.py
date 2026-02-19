@@ -1,6 +1,8 @@
 """
-지식 인덱서.
-파일 스캔 → 텍스트 추출 → 청킹 → 임베딩 → ChromaDB 저장.
+지식 인덱서 (로컬 전용).
+
+로컬 파일만 대상: 파일 스캔 → 텍스트 추출 → 청킹 → 임베딩 → ChromaDB 저장.
+클라우드 업로드·외부 데이터 전송 없음. 프로젝트·주제 단위 검색을 위한 벡터 저장.
 """
 
 import asyncio
@@ -26,7 +28,9 @@ COLLECTION_NAME = "local_knowledge"
 class KnowledgeIndexer:
     """
     로컬 파일 기반 RAG 인덱싱.
-    ChromaDB에 벡터 저장.
+
+    문서·프로젝트·개인 자료를 인덱싱해 의미 검색·질의응답 가능하게 함.
+    ChromaDB에 벡터 저장. 모든 처리 로컬 수행.
     """
 
     def __init__(self) -> None:

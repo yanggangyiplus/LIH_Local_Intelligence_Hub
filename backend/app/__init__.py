@@ -1,5 +1,13 @@
 """
-Local Intelligence Hub - Backend Application
+Local Intelligence Hub (LIH) - Backend Application
+
+로컬 우선(Local-first) AI 시스템. 사용자 로컬 파일을 인덱싱하여
+문서·프로젝트·개인 자료를 AI가 이해·관리할 수 있게 합니다.
+
+- RAG: 의미 기반 검색·질의응답 (클라우드/외부 전송 없음)
+- 파일 정리: 구조·내용·메타데이터 분석 → AI 정리 계획 → 미리보기 → 사용자 확인 → 실행
+- 흐름: 이해 → 판단 → 계획 → 실행 → 되돌리기(Undo)
+- 완전 로컬: 파일, 임베딩, 벡터 DB, AI 추론 모두 로컬 처리
 """
 
 __version__ = "0.1.0"

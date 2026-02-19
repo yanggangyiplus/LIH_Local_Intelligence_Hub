@@ -1,3 +1,6 @@
+/**
+ * 로컬 지식 (RAG): 로컬 폴더 인덱싱, 의미 검색·질의응답. 완전 로컬, 외부 전송 없음.
+ */
 import { useState, useEffect } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { knowledgeApi } from '../services/api';

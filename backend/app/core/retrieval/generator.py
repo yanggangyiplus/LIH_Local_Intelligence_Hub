@@ -1,7 +1,8 @@
 """
-RAG 답변 생성 모듈.
-검색된 컨텍스트 + LLM(Ollama)으로 답변 생성.
-스트리밍 지원.
+RAG 질의응답 생성 모듈.
+
+로컬 검색된 컨텍스트 + Ollama LLM으로 파일 내용·맥락 기반 답변 생성.
+의미 기반 검색 결과를 활용. 스트리밍 지원. 완전 로컬 추론.
 """
 
 from typing import AsyncGenerator, Optional

@@ -1,5 +1,8 @@
 """
-Local Knowledge (RAG) API 라우트.
+Local Knowledge Engine (RAG) API 라우트.
+
+로컬 파일 인덱싱 → 의미 기반 검색·질의응답. 파일 내용·맥락 반영.
+Ollama + ChromaDB. 완전 로컬, 외부 전송 없음.
 """
 
 import uuid
@@ -21,7 +24,7 @@ _index_jobs: dict[str, dict] = {}
 
 @router.post("/index")
 async def start_indexing(req: IndexRequest) -> dict:
-    """인덱싱 작업 시작. 백그라운드로 실행되며 job_id로 상태 조회."""
+    """로컬 폴더 인덱싱 시작. 문서·프로젝트·개인 자료를 RAG 검색 가능하게 함."""
     from app.utils.safe_file_ops import create_safe_ops_for_root
     from pathlib import Path
 
@@ -65,7 +68,7 @@ async def get_index_status(job_id: str) -> dict:
 
 @router.post("/query")
 async def query(req: QueryRequest) -> QueryResponse:
-    """RAG 질의 (비스트리밍)."""
+    """로컬 RAG 질의응답. 파일 내용·맥락 기반 의미 검색 후 답변 생성."""
     gen = RAGGenerator()
     answer, sources, model = await gen.generate(
         query=req.query,
@@ -123,7 +126,7 @@ async def get_knowledge_stats() -> dict:
 
 @router.post("/search")
 async def semantic_search(req: QueryRequest) -> dict:
-    """시맨틱 검색만 (LLM 답변 없이)."""
+    """의미(시맨틱) 검색. 프로젝트·주제 단위 검색 (LLM 답변 없이 청크만 반환)."""
     retriever = Retriever()
     chunks = retriever.search(
         query=req.query,

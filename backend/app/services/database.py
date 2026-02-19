@@ -1,5 +1,7 @@
 """
-SQLite 데이터베이스 초기화 및 스키마.
+로컬 SQLite DB. 인덱싱 작업·파일 메타·정리 작업 로그(Undo 지원) 저장.
+
+모든 데이터 로컬 보관. reorganization_logs로 Apply 이력 저장 → 되돌리기 지원.
 """
 
 import aiosqlite
@@ -36,7 +38,7 @@ CREATE TABLE IF NOT EXISTS indexed_files (
 CREATE INDEX IF NOT EXISTS idx_indexed_files_job ON indexed_files(index_job_id);
 CREATE INDEX IF NOT EXISTS idx_indexed_files_path ON indexed_files(file_path);
 
--- 파일 정리 작업 로그 (Undo 지원)
+-- 파일 정리 작업 로그: Apply Engine 실행 이력, Undo(되돌리기) 지원
 CREATE TABLE IF NOT EXISTS reorganization_logs (
     id TEXT PRIMARY KEY,
     plan_id TEXT NOT NULL,

@@ -28,6 +28,7 @@ export const fileIntelligenceApi = {
       dry_run: dryRun,
       confirm,
     }),
+  undo: (planId: string) => api.post(`/file-intelligence/undo/${planId}`),
   history: () => api.get('/file-intelligence/history'),
 };
 

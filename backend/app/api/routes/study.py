@@ -1,5 +1,7 @@
 """
-Study & Context API 라우트.
+Study & Context Engine API 라우트.
+
+로컬 폴더 기반: 개념 추출, 요약, 질문/학습 계획 생성. (핵심 엔진 3종 중 하나)
 """
 
 from pathlib import Path

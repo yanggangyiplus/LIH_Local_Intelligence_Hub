@@ -1,5 +1,14 @@
+/**
+ * LIH (Local Intelligence Hub) - 로컬 우선 AI 워크스페이스
+ *
+ * 핵심 엔진 3종:
+ * - 파일 인텔리전스: 스캔 → AI 정리 계획 → 미리보기 → 승인 후 실행, 작업 로그(Undo)
+ * - 로컬 지식 (RAG): 로컬 인덱싱, 의미 검색·질의응답 (외부 전송 없음)
+ * - 학습 엔진: 개념 추출, 요약, 질문/학습 계획
+ * 흐름: 이해 → 판단 → 계획 → 실행 → 되돌리기(Undo)
+ */
 import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom';
-import { FileSearch, BookOpen, GraduationCap, Settings } from 'lucide-react';
+import { FileSearch, BookOpen, GraduationCap } from 'lucide-react';
 import FileIntelligencePage from './pages/FileIntelligencePage';
 import KnowledgePage from './pages/KnowledgePage';
 import StudyPage from './pages/StudyPage';

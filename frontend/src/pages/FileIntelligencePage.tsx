@@ -1,3 +1,6 @@
+/**
+ * 파일 인텔리전스: 스캔 → AI 정리 계획 → 미리보기 → 승인 후 적용. 작업 로그(Undo) 지원.
+ */
 import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { fileIntelligenceApi } from '../services/api';
@@ -15,6 +18,7 @@ import {
   Archive,
   File,
   ChevronRight,
+  Undo2,
 } from 'lucide-react';
 
 interface PlanAction {
@@ -53,6 +57,7 @@ export default function FileIntelligencePage() {
   const [organizeBy, setOrganizeBy] = useState<'content' | 'name' | 'time'>('content');
   const [focus, setFocus] = useState<'names' | 'locations' | 'both'>('both');
   const [previewResult, setPreviewResult] = useState<{ actions_count: number; logs?: Array<{ source_path: string; target_path?: string; operation_type: string }> } | null>(null);
+  const [applied, setApplied] = useState(false);
 
   const scanMutation = useMutation({
     mutationFn: () => fileIntelligenceApi.scan(rootPath),
@@ -84,10 +89,26 @@ export default function FileIntelligencePage() {
       fileIntelligenceApi.apply(plan!.plan_id, [], false, true),
     onSuccess: (res) => {
       setPreviewResult(null);
-      if (res.data?.applied) alert(`적용 완료 (${res.data.logs_count}개 작업)`);
+      if (res.data?.applied) {
+        setApplied(true);
+        alert(`적용 완료 (${res.data.logs_count}개 작업)`);
+      }
     },
     onError: (err) => {
       alert(err instanceof Error ? err.message : '적용 실패');
+    },
+    enabled: !!plan,
+  });
+
+  const undoMutation = useMutation({
+    mutationFn: () => fileIntelligenceApi.undo(plan!.plan_id),
+    onSuccess: (res) => {
+      const d = res.data;
+      setApplied(false);
+      alert(`되돌리기 완료: ${d.undone_count}/${d.total}개 작업 복원`);
+    },
+    onError: (err) => {
+      alert(err instanceof Error ? err.message : '되돌리기 실패');
     },
     enabled: !!plan,
   });
@@ -288,12 +309,22 @@ export default function FileIntelligencePage() {
                 </button>
                 <button
                   onClick={() => window.confirm('정말 파일 정리를 적용할까요? 적용 후 파일이 이동/삭제됩니다.') && applyMutation.mutate()}
-                  disabled={applyMutation.isPending}
+                  disabled={applyMutation.isPending || applied}
                   className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
                 >
                   {applyMutation.isPending ? <Loader2 size={18} className="animate-spin" /> : <PlayCircle size={18} />}
                   적용
                 </button>
+                {applied && (
+                  <button
+                    onClick={() => window.confirm('적용된 파일 정리를 되돌릴까요?') && undoMutation.mutate()}
+                    disabled={undoMutation.isPending}
+                    className="flex items-center gap-2 px-5 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
+                  >
+                    {undoMutation.isPending ? <Loader2 size={18} className="animate-spin" /> : <Undo2 size={18} />}
+                    되돌리기 (Undo)
+                  </button>
+                )}
               </div>
               {previewResult && (
                 <div className="mt-4 p-4 bg-gray-700 rounded-lg text-sm">

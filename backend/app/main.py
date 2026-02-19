@@ -1,5 +1,9 @@
 """
-Local Intelligence Hub - FastAPI 애플리케이션 진입점.
+Local Intelligence Hub (LIH) - FastAPI 애플리케이션 진입점.
+
+로컬 파일 기반 AI 워크스페이스. File Intelligence(스캔·분석·정리 계획·미리보기·Apply·Undo),
+RAG(의미 검색·질의응답), Study Engine(개념·요약·학습 계획) 제공.
+모든 데이터 처리는 로컬에서 수행되며 외부 전송 없음.
 """
 
 from contextlib import asynccontextmanager
@@ -29,7 +33,11 @@ def create_app() -> FastAPI:
     """FastAPI 앱 생성."""
     app = FastAPI(
         title="Local Intelligence Hub",
-        description="로컬 파일 기반 AI 워크스페이스 - File Intelligence, RAG, Study Engine",
+        description=(
+            "로컬 우선 AI 시스템. 로컬 파일 인덱싱·RAG 의미 검색·질의응답, "
+            "파일/폴더 분석·AI 정리 계획·미리보기·승인 후 실행·작업 로그(Undo 지원). "
+            "완전 로컬 처리(파일·임베딩·벡터 DB·AI 추론), 외부 전송 없음."
+        ),
         version="0.1.0",
         lifespan=lifespan,
         docs_url="/docs",
