@@ -5,7 +5,8 @@
 
 import axios from 'axios';
 
-const API_BASE = '/api/v1';
+/** 로컬: /api/v1 (Vite 프록시). 배포: VITE_API_BASE_URL (백엔드 공개 URL) */
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 const api = axios.create({
   baseURL: API_BASE,

@@ -80,6 +80,10 @@ class Settings(BaseSettings):
         default="",
         description="허용 루트 경로 (쉼표 구분, 비어있으면 사용자 지정만)",
     )
+    cors_origins: str = Field(
+        default="",
+        description="CORS 허용 도메인 추가 (쉼표 구분, 예: https://xxx.vercel.app)",
+    )
 
     # Logging
     log_level: str = Field(default="INFO", description="로그 레벨")

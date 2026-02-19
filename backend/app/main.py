@@ -44,10 +44,14 @@ def create_app() -> FastAPI:
         redoc_url="/redoc",
     )
 
-    # CORS (Tauri/React from different origin)
+    # CORS (로컬 + 배포 프론트 도메인)
+    settings = get_settings()
+    origins = ["http://localhost:3000", "http://127.0.0.1:3000", "tauri://localhost"]
+    if settings.cors_origins:
+        origins.extend(s.strip() for s in settings.cors_origins.split(",") if s.strip())
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "tauri://localhost"],
+        allow_origins=origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

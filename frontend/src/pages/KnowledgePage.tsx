@@ -99,7 +99,7 @@ export default function KnowledgePage() {
       });
 
       if (!response.ok) throw new Error('스트리밍 요청 실패');
-      
+
       const reader = response.body?.getReader();
       if (!reader) throw new Error('스트림 읽기 실패');
 
@@ -240,11 +240,10 @@ export default function KnowledgePage() {
                   </div>
                 )}
                 <div className={`max-w-[80%] ${msg.role === 'user' ? 'order-first' : ''}`}>
-                  <div className={`p-3 rounded-2xl text-sm ${
-                    msg.role === 'user'
+                  <div className={`p-3 rounded-2xl text-sm ${msg.role === 'user'
                       ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-br-md'
                       : 'bg-white/5 border border-white/5 text-gray-200 rounded-bl-md'
-                  }`}>
+                    }`}>
                     <p className="whitespace-pre-wrap">{msg.content}</p>
                     {msg.streaming && (
                       <span className="inline-block w-1.5 h-4 bg-indigo-400 rounded-sm animate-pulse ml-0.5" />
