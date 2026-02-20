@@ -1,4 +1,0 @@
-2026-02-13: Ollama llama3.2 + nomic-embed-text 로컬 LLM 연동 완료
-2026-02-15: Tauri v2 사이드카 방식으로 백엔드 내장 성공
-2026-02-18: Gemini API 데스크톱 전용 지원 추가
-2026-02-19: 임베딩 모듈 Ollama API 호환성 수정

@@ -1,9 +1,0 @@
-[x] FastAPI 백엔드 구축
-[x] React 프론트엔드 구축
-[x] ChromaDB 인덱싱 파이프라인
-[x] RAG 기반 질의응답
-[x] 파일 인텔리전스 (스캔/계획/적용)
-[x] Tauri 데스크톱 앱 (.dmg)
-[ ] Windows 빌드 (.exe)
-[ ] 다국어 지원
-[ ] 플러그인 시스템
