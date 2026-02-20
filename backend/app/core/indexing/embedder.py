@@ -36,10 +36,12 @@ class Embedder:
             from ollama import Client
 
             client = Client(host=self.settings.ollama_base_url)
-            client.embed(model=self.settings.ollama_embedding_model, input="test")
-            self._ollama_available = True
+            resp = client.embed(model=self.settings.ollama_embedding_model, input=["test"])
+            # 새 API: 속성 접근, 구 API: dict 접근
+            emb = getattr(resp, "embeddings", None) or (resp.get("embeddings") if isinstance(resp, dict) else None)
+            self._ollama_available = emb is not None and len(emb) > 0
         except Exception as e:
-            logger.warning("Ollama 임베딩 사용 불가, sentence-transformers로 전환", error=str(e))
+            logger.warning("Ollama 임베딩 사용 불가", error=str(e))
             self._ollama_available = False
         return self._ollama_available
 
@@ -64,18 +66,28 @@ class Embedder:
         return _st_model_singleton
 
     def embed(self, texts: list[str], force_sentence_transformers: bool = False) -> list[list[float]]:
-        """텍스트 리스트를 임베딩 벡터로 변환. 설정 또는 인자로 ST 강제 가능."""
+        """텍스트 리스트를 임베딩 벡터로 변환. 설정 기반 자동 선택."""
+        # 1) OpenAI 임베딩 강제 (클라우드 배포용)
         if self.settings.use_openai_embedding and self.settings.openai_api_key:
             return self._embed_openai(texts)
+        # 2) sentence-transformers 강제
         use_st = force_sentence_transformers or self.settings.force_sentence_transformers
         if use_st:
             return self._embed_st(texts)
+        # 3) Ollama (로컬 기본)
         if self._check_ollama():
             return self._embed_ollama(texts)
-        # sentence_transformers 미설치 환경(경량 이미지)에서는 OpenAI로 폴백
+        # 4) OpenAI 폴백 (키가 있을 때)
         if self.settings.openai_api_key:
             return self._embed_openai(texts)
-        return self._embed_st(texts)
+        # 5) sentence-transformers 폴백 (설치된 경우에만)
+        try:
+            return self._embed_st(texts)
+        except RuntimeError:
+            raise RuntimeError(
+                "임베딩 생성 불가: Ollama가 실행 중인지 확인하세요. "
+                "또는 Settings에서 OpenAI/Gemini API 키를 설정하세요."
+            )
 
     def _embed_openai(self, texts: list[str]) -> list[list[float]]:
         """OpenAI Embeddings API 사용 (클라우드/경량 이미지용)."""
@@ -102,7 +114,10 @@ class Embedder:
             model=self.settings.ollama_embedding_model,
             input=texts,
         )
-        embeddings = result.get("embeddings", [])
+        # 새 API(속성) / 구 API(dict) 호환
+        embeddings = getattr(result, "embeddings", None)
+        if embeddings is None and isinstance(result, dict):
+            embeddings = result.get("embeddings", [])
         if isinstance(embeddings, list) and embeddings:
             if isinstance(embeddings[0], list):
                 return embeddings

@@ -118,6 +118,7 @@ async def query(req: QueryRequest) -> QueryResponse:
         scope=req.scope,
         scope_path=req.scope_path,
     )
+
     return QueryResponse(
         answer=answer,
         sources=sources if req.include_sources else [],

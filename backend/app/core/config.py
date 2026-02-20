@@ -32,9 +32,15 @@ class Settings(BaseSettings):
     )
     sqlite_db_path: Path = Field(default=Path("./data/lih.db"), description="SQLite DB 경로")
 
-    # LLM Provider 선택 (openai / ollama)
+    # LLM Provider 선택 (openai / ollama / gemini)
     llm_provider: str = Field(
-        default="openai", description="LLM 백엔드 (openai 또는 ollama)"
+        default="openai", description="LLM 백엔드 (openai, ollama, gemini)"
+    )
+
+    # Gemini
+    gemini_api_key: str = Field(default="", description="Google Gemini API 키")
+    gemini_chat_model: str = Field(
+        default="gemini-2.0-flash", description="Gemini 채팅 모델"
     )
 
     # OpenAI

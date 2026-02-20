@@ -92,7 +92,7 @@ export const uploadApi = {
 /** Settings */
 export const settingsApi = {
   get: () => api.get('/settings'),
-  update: (data: { llm_provider?: string; openai_api_key?: string; openai_chat_model?: string }) =>
+  update: (data: Record<string, unknown>) =>
     api.put('/settings', data),
 };
 

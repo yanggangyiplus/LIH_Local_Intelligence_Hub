@@ -3,7 +3,7 @@
  * 탭 기반 결과 표시 + 플래시카드 UI.
  */
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
@@ -19,7 +19,7 @@ import {
   FolderOpen,
   Play,
 } from 'lucide-react';
-import { studyApi } from '../services/api';
+import { studyApi, settingsApi } from '../services/api';
 import FolderPathInput from '../components/FolderPathInput';
 import FileUploadZone from '../components/FileUploadZone';
 
@@ -98,6 +98,13 @@ export default function StudyPage() {
   const [rootPath, setRootPath] = useState('');
   const [activeTab, setActiveTab] = useState<TabKey>('summary');
   const [inputMode, setInputMode] = useState<'upload' | 'folder'>('folder');
+
+  // 설정에서 활성화된 학습 도구 로드
+  const { data: settingsData } = useQuery({
+    queryKey: ['settings'],
+    queryFn: async () => (await settingsApi.get()).data,
+  });
+  const enabledTools: string[] = settingsData?.study_tools ?? ['summary', 'concepts', 'questions', 'interview', 'plan'];
   const [summary, setSummary] = useState<string | null>(null);
   const [concepts, setConcepts] = useState<Concept[] | null>(null);
   const [questions, setQuestions] = useState<Question[] | null>(null);
@@ -133,13 +140,15 @@ export default function StudyPage() {
   const disabled = !rootPath.trim();
   const anyLoading = summaryMutation.isPending || conceptsMutation.isPending || questionsMutation.isPending || interviewMutation.isPending || planMutation.isPending;
 
-  const actionButtons = [
+  const allActionButtons = [
     { key: 'summary' as TabKey, label: '요약', icon: BookOpen, mutation: summaryMutation },
     { key: 'concepts' as TabKey, label: '개념 추출', icon: Lightbulb, mutation: conceptsMutation },
     { key: 'questions' as TabKey, label: '질문 생성', icon: HelpCircle, mutation: questionsMutation },
     { key: 'interview' as TabKey, label: '면접 질문', icon: Briefcase, mutation: interviewMutation },
     { key: 'plan' as TabKey, label: '학습 계획', icon: CalendarCheck, mutation: planMutation },
   ];
+  const actionButtons = allActionButtons.filter(b => enabledTools.includes(b.key));
+  const filteredTabs = tabs.filter(t => enabledTools.includes(t.key));
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -224,7 +233,7 @@ export default function StudyPage() {
       <div className="glass-card overflow-hidden">
         {/* 탭 헤더 */}
         <div className="flex border-b border-white/5 overflow-x-auto">
-          {tabs.map(({ key, label, icon: Icon }) => (
+          {filteredTabs.map(({ key, label, icon: Icon }) => (
             <button
               key={key}
               onClick={() => setActiveTab(key)}

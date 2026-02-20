@@ -23,6 +23,8 @@ def validate_root_path(path: str) -> Path:
 
 
 async def get_db() -> AsyncGenerator[aiosqlite.Connection, None]:
-    """요청별 DB 연결 의존성."""
+    """요청별 DB 연결 의존성. WAL 모드 + busy timeout으로 동시 접근 안정성 확보."""
     async with aiosqlite.connect(str(get_db_path())) as db:
+        await db.execute("PRAGMA journal_mode=WAL")
+        await db.execute("PRAGMA busy_timeout=5000")
         yield db
