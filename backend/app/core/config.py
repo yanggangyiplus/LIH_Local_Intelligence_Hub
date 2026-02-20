@@ -66,6 +66,14 @@ class Settings(BaseSettings):
     ollama_chat_model: str = Field(
         default="llama3.2", description="Ollama 채팅/완성 모델"
     )
+    ollama_temperature: float = Field(
+        default=0.3,
+        description="Ollama 생성 온도 (0~1). 낮을수록 일관·사실적, 높을수록 창의적.",
+    )
+    ollama_num_predict: int = Field(
+        default=2048,
+        description="Ollama 최대 생성 토큰 수.",
+    )
 
     # Embedding fallback
     sentence_transformers_model: str = Field(

@@ -124,11 +124,14 @@ class OrganizationPlanner:
                 lines.append(f"  FILE {f.path} (확장자:{f.extension}, {f.size_bytes}B){suffix}")
         return "\n".join(lines)
 
-    def _call_llm(self, prompt: str) -> Optional[str]:
+    def _call_llm(self, prompt: str, system: Optional[str] = None) -> Optional[str]:
         """LLM Provider를 통한 동기 LLM 호출."""
         try:
             llm = get_llm_provider()
-            return llm.chat_sync([{"role": "user", "content": prompt}])
+            messages = [{"role": "user", "content": prompt}]
+            if system:
+                messages = [{"role": "system", "content": system}, {"role": "user", "content": prompt}]
+            return llm.chat_sync(messages)
         except Exception as e:
             logger.error("LLM 호출 실패", error=str(e))
             return None
@@ -191,8 +194,9 @@ class OrganizationPlanner:
 delete_duplicate는 이미 처리됨. move 시 target은 폴더 경로. create_folder 시 source 없이 target만.
 유의미한 정리만 제안하고, 변경 없는 작업은 절대 포함하지 마세요.
 """
+        system_plan = "당신은 폴더 정리 전문가입니다. reason 필드는 반드시 한국어로 짧게 작성하세요. 출력은 JSON 배열만 하세요. 다른 설명 없이 [ {...}, ... ] 형태만 출력하세요."
 
-        llm_out = self._call_llm(prompt)
+        llm_out = self._call_llm(prompt, system=system_plan)
         if llm_out:
             try:
                 text = llm_out.strip()

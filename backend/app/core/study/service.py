@@ -69,17 +69,18 @@ class StudyService:
             return ConceptExtractionResult(concepts=[], file_links={})
 
         combined = "\n\n---\n\n".join(f"[{p}]\n{t}" for p, t in texts[:20])
+        sys_msg = "당신은 문서 분석 전문가입니다. 반드시 한국어로만 답하고, 출력은 JSON 배열만 하세요. 다른 언어를 섞지 마세요."
         prompt = f"""다음 문서들에서 핵심 개념(키워드/테마)을 추출해 JSON 배열로 나열하세요.
-각 개념에 id, name, description, relevance(1-5)를 포함하세요.
+각 개념에 id(문자열), name, description, relevance(1-5 숫자)를 포함하세요. name과 description은 한국어로 작성하세요.
 
 문서:
 {combined[:15000]}
 
-출력 형식 (JSON만):
+출력 (JSON 배열만, 다른 텍스트 없이):
 [{{"id": "c1", "name": "개념명", "description": "설명", "relevance": 4}}, ...]"""
 
         try:
-            content = await self.llm.chat([{"role": "user", "content": prompt}])
+            content = await self.llm.chat([{"role": "system", "content": sys_msg}, {"role": "user", "content": prompt}])
             arr = _extract_json_array(content)
             concepts = arr if isinstance(arr, list) else []
             file_links: dict[str, list[str]] = {}
@@ -106,12 +107,13 @@ class StudyService:
             context = self._read_files_directly(root_path)
             if not context:
                 return "분석할 파일이 없습니다. 텍스트 파일이 포함된 폴더 경로를 입력해주세요."
-        prompt = f"""다음 내용을 3-5문장으로 간결히 요약해주세요. 한국어로 작성하세요.
+        sys_msg = "당신은 문서 요약 전문가입니다. 반드시 한국어로만 답하세요. 일본어나 영어를 사용하지 마세요."
+        prompt = f"""다음 내용을 3~5문장으로 간결히 요약해주세요. 한국어로만 작성하세요.
 
 {context[:6000]}"""
 
         try:
-            return await self.llm.chat([{"role": "user", "content": prompt}])
+            return await self.llm.chat([{"role": "system", "content": sys_msg}, {"role": "user", "content": prompt}])
         except Exception as e:
             logger.error("요약 생성 실패", error=str(e))
             return f"요약 생성 중 오류: {e}"
@@ -125,14 +127,15 @@ class StudyService:
             context = self._read_files_directly(root_path)
             if not context:
                 return []
-        prompt = f"""다음 내용을 기반으로 학습용 객관식/주관식 질문 5개를 만들어주세요.
-JSON 배열로 출력하세요: [{{"question": "질문", "type": "multiple_choice|short_answer", "options": ["A","B"] (객관식일 때), "answer": "정답"}}]
+        sys_msg = "당신은 학습 도우미입니다. 질문과 정답은 반드시 한국어로만 작성하고, 출력은 JSON 배열만 하세요."
+        prompt = f"""다음 내용을 기반으로 학습용 객관식/주관식 질문 5개를 만들어주세요. 질문과 정답은 한국어로만 작성하세요.
+JSON 배열로만 출력: [{{"question": "질문", "type": "multiple_choice|short_answer", "options": ["A","B"] (객관식일 때만), "answer": "정답"}}]
 
 내용:
 {context[:5000]}"""
 
         try:
-            content = await self.llm.chat([{"role": "user", "content": prompt}])
+            content = await self.llm.chat([{"role": "system", "content": sys_msg}, {"role": "user", "content": prompt}])
             arr = _extract_json_array(content)
             return arr if isinstance(arr, list) else []
         except Exception as e:
@@ -148,14 +151,15 @@ JSON 배열로 출력하세요: [{{"question": "질문", "type": "multiple_choic
             context = self._read_files_directly(root_path)
             if not context:
                 return []
-        prompt = f"""다음 기술 문서/코드 기반으로 기술 면접 질문 5개를 만들어주세요.
-JSON 배열: [{{"question": "질문", "hint": "힌트", "expected_answer": "예상 답변 요약"}}]
+        sys_msg = "당신은 기술 면접 전문가입니다. 질문·힌트·예상 답변은 반드시 한국어로만 작성하고, 출력은 JSON 배열만 하세요."
+        prompt = f"""다음 기술 문서/코드 기반으로 기술 면접 질문 5개를 만들어주세요. 질문, 힌트, 예상 답변은 모두 한국어로만 작성하세요.
+JSON 배열만 출력: [{{"question": "질문", "hint": "힌트", "expected_answer": "예상 답변 요약"}}]
 
 내용:
 {context[:5000]}"""
 
         try:
-            content = await self.llm.chat([{"role": "user", "content": prompt}])
+            content = await self.llm.chat([{"role": "system", "content": sys_msg}, {"role": "user", "content": prompt}])
             arr = _extract_json_array(content)
             return arr if isinstance(arr, list) else []
         except Exception as e:
@@ -167,7 +171,8 @@ JSON 배열: [{{"question": "질문", "hint": "힌트", "expected_answer": "예�
         concepts = await self.extract_concepts(root_path, options)
         summary = await self.generate_summary(root_path, options)
 
-        prompt = f"""다음 요약과 개념을 바탕으로 학습 계획을 JSON 배열로 만들어주세요.
+        sys_msg = "당신은 학습 설계 전문가입니다. 단계명·설명은 반드시 한국어로만 작성하고, 출력은 JSON 배열만 하세요."
+        prompt = f"""다음 요약과 개념을 바탕으로 학습 계획을 JSON 배열로 만들어주세요. title과 description은 한국어로만 작성하세요.
 각 단계: {{"order": 1, "title": "단계명", "description": "설명", "estimated_minutes": 30, "concepts": ["개념1"]}}
 
 요약: {summary}
@@ -176,7 +181,7 @@ JSON 배열: [{{"question": "질문", "hint": "힌트", "expected_answer": "예�
 출력 (JSON 배열만):"""
 
         try:
-            content = await self.llm.chat([{"role": "user", "content": prompt}])
+            content = await self.llm.chat([{"role": "system", "content": sys_msg}, {"role": "user", "content": prompt}])
             arr = _extract_json_array(content)
             plan = arr if isinstance(arr, list) else []
             total = sum(p.get("estimated_minutes", 0) for p in plan if isinstance(p, dict))
