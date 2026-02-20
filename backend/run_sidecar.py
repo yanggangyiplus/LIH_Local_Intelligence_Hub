@@ -10,10 +10,15 @@ DEFAULT_ENV = """\
 # LIH Desktop - 설정 파일
 # 앱 Settings 페이지에서도 수정 가능합니다.
 
-LLM_PROVIDER=openai
+LLM_PROVIDER=ollama
 OPENAI_API_KEY=
 OPENAI_CHAT_MODEL=gpt-4o-mini
-USE_OPENAI_EMBEDDING=true
+GEMINI_API_KEY=
+GEMINI_CHAT_MODEL=gemini-2.0-flash
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_CHAT_MODEL=llama3.2
+OLLAMA_EMBEDDING_MODEL=nomic-embed-text
+USE_OPENAI_EMBEDDING=false
 """
 
 

@@ -44,22 +44,12 @@ def create_app() -> FastAPI:
         redoc_url="/redoc",
     )
 
-    # CORS (로컬 + Vercel 프로덕션/프리뷰)
-    settings = get_settings()
-    origins = [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "tauri://localhost",
-        "https://lihlocalintelligencehub.vercel.app",
-    ]
-    if settings.cors_origins:
-        origins.extend(s.strip() for s in settings.cors_origins.split(",") if s.strip())
-    # Vercel 프리뷰 URL (git-main-xxx.vercel.app 등) 허용
+    # CORS: 로컬 데스크톱 앱(Tauri)은 origin이 null/tauri://localhost 등 다양하므로
+    # 모든 origin 허용. 웹 배포 시에도 공개 API이므로 제한 불필요.
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=origins,
-        allow_origin_regex=r"^https://[\w\-]+\.vercel\.app$",
-        allow_credentials=True,
+        allow_origins=["*"],
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )

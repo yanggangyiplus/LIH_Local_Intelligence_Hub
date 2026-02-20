@@ -85,12 +85,17 @@ class PlanRequest(BaseModel):
 @router.post("/plan")
 async def generate_plan(req: PlanRequest) -> ReorganizationPlan:
     """AI 정리 계획(Plan) 생성. 이동·리네이밍·중복 정리 등, 정리 이유 제시."""
+    import asyncio
+
     if req.job_id not in _scan_cache:
         raise HTTPException(status_code=404, detail="스캔 결과를 찾을 수 없습니다.")
     scan = _scan_cache[req.job_id]
     options = PlanOptions(organize_by=req.organize_by, focus=req.focus)
     planner = OrganizationPlanner(scan, options)
-    plan = planner.generate_plan()
+    try:
+        plan = await asyncio.to_thread(planner.generate_plan)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"계획 생성 중 오류: {str(e)}")
     _plan_cache[plan.plan_id] = plan
     return plan
 

@@ -66,14 +66,16 @@ pyinstaller --onefile \
   --hidden-import=app.services.database \
   --hidden-import=app.models \
   --hidden-import=app.utils \
+  --hidden-import=google.genai \
+  --hidden-import=google.genai.types \
+  --hidden-import=ollama \
   --collect-all=chromadb \
+  --collect-all=google.genai \
+  --collect-all=ollama \
   --exclude-module=torch \
   --exclude-module=torchvision \
   --exclude-module=torchaudio \
   --exclude-module=sentence_transformers \
-  --exclude-module=scipy \
-  --exclude-module=pandas \
-  --exclude-module=numpy \
   --exclude-module=sklearn \
   --exclude-module=matplotlib \
   --exclude-module=PIL \
@@ -82,7 +84,6 @@ pyinstaller --onefile \
   --exclude-module=onnxruntime \
   --exclude-module=nltk \
   --exclude-module=pytest \
-  --exclude-module=ollama \
   run_sidecar.py
 
 mkdir -p "$BINARIES"

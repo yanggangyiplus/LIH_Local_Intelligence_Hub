@@ -102,10 +102,11 @@ export default function DashboardPage() {
   });
 
   const clearMutation = useMutation({
-    mutationFn: (options: typeof clearOptions & { clear_all?: boolean }) => dashboardApi.clear(options),
+    mutationFn: async (options: typeof clearOptions & { clear_all?: boolean }) => {
+      const resp = await dashboardApi.clear(options);
+      return resp.data;
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
-      refetchActivity();
       setShowClearModal(false);
       setClearOptions({
         clear_indexed_files: false,
@@ -114,8 +115,15 @@ export default function DashboardPage() {
         clear_scan_cache: false,
       });
       toast.success('데이터가 초기화되었습니다.');
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+        refetchActivity();
+      }, 300);
     },
-    onError: () => toast.error('초기화 실패'),
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : '알 수 없는 오류';
+      toast.error(`초기화 실패: ${msg}`);
+    },
   });
 
   const deleteActivityMutation = useMutation({

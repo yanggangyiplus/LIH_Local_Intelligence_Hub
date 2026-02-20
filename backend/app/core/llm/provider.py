@@ -1,7 +1,7 @@
 """
 LLM Provider 추상화.
 
-OpenAI(gpt-4o-mini)와 Ollama(로컬) 두 백엔드를 공통 인터페이스로 제공.
+OpenAI / Ollama / Gemini 세 백엔드를 공통 인터페이스로 제공.
 config.llm_provider 설정에 따라 자동 선택.
 임베딩은 이 모듈 범위 밖 (기존 Embedder 유지).
 """
@@ -172,6 +172,94 @@ class OllamaProvider(LLMProvider):
         return getattr(msg, "content", None) or (msg.get("content") if isinstance(msg, dict) else "") or ""
 
 
+class GeminiProvider(LLMProvider):
+    """Google Gemini API 기반 LLM Provider."""
+
+    def __init__(self) -> None:
+        self.settings = get_settings()
+        self._client = None
+
+    @property
+    def client(self):
+        if self._client is None:
+            from google import genai
+            self._client = genai.Client(api_key=self.settings.gemini_api_key)
+        return self._client
+
+    @property
+    def provider_name(self) -> str:
+        return "gemini"
+
+    @property
+    def default_model(self) -> str:
+        return self.settings.gemini_chat_model
+
+    def _convert_messages(self, messages: list[dict]) -> tuple[Optional[str], list[dict]]:
+        """OpenAI 형식 messages를 Gemini 형식으로 변환. system 메시지 분리."""
+        system_instruction = None
+        contents = []
+        for m in messages:
+            role = m.get("role", "user")
+            text = m.get("content", "")
+            if role == "system":
+                system_instruction = text
+            else:
+                # Gemini는 'user'와 'model' role 사용
+                contents.append({
+                    "role": "model" if role == "assistant" else "user",
+                    "parts": [{"text": text}],
+                })
+        return system_instruction, contents
+
+    async def chat(self, messages: list[dict], model: Optional[str] = None) -> str:
+        """Gemini 비스트리밍 대화 완성."""
+        import asyncio
+        return await asyncio.to_thread(self._chat_sync_internal, messages, model)
+
+    def _chat_sync_internal(self, messages: list[dict], model: Optional[str] = None) -> str:
+        """Gemini 동기 호출 (내부용)."""
+        from google.genai import types
+        system_instruction, contents = self._convert_messages(messages)
+        config = types.GenerateContentConfig(
+            temperature=0.7,
+            system_instruction=system_instruction,
+        )
+        response = self.client.models.generate_content(
+            model=model or self.default_model,
+            contents=contents,
+            config=config,
+        )
+        return response.text or ""
+
+    async def chat_stream(
+        self, messages: list[dict], model: Optional[str] = None
+    ) -> AsyncGenerator[str, None]:
+        """Gemini 스트리밍 대화 완성."""
+        import asyncio
+        from google.genai import types
+        system_instruction, contents = self._convert_messages(messages)
+        config = types.GenerateContentConfig(
+            temperature=0.7,
+            system_instruction=system_instruction,
+        )
+
+        def _stream():
+            return self.client.models.generate_content_stream(
+                model=model or self.default_model,
+                contents=contents,
+                config=config,
+            )
+
+        stream = await asyncio.to_thread(_stream)
+        for chunk in stream:
+            if chunk.text:
+                yield chunk.text
+
+    def chat_sync(self, messages: list[dict], model: Optional[str] = None) -> str:
+        """Gemini 동기 대화 완성."""
+        return self._chat_sync_internal(messages, model)
+
+
 # --- 싱글톤 팩토리 ---
 
 _provider_instance: Optional[LLMProvider] = None
@@ -182,7 +270,10 @@ def get_llm_provider() -> LLMProvider:
     global _provider_instance
     if _provider_instance is None:
         settings = get_settings()
-        if settings.llm_provider == "openai" and settings.openai_api_key:
+        if settings.llm_provider == "gemini" and settings.gemini_api_key:
+            _provider_instance = GeminiProvider()
+            logger.info("LLM Provider: Gemini", model=settings.gemini_chat_model)
+        elif settings.llm_provider == "openai" and settings.openai_api_key:
             _provider_instance = OpenAIProvider()
             logger.info("LLM Provider: OpenAI", model=settings.openai_chat_model)
         else:
