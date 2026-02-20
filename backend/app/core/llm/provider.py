@@ -140,11 +140,19 @@ class OllamaProvider(LLMProvider):
     def default_model(self) -> str:
         return self.settings.ollama_chat_model
 
+    def _ollama_options(self) -> dict:
+        """Ollama 생성 옵션 (temperature 낮춰 일관·한국어 품질 향상)."""
+        return {
+            "temperature": self.settings.ollama_temperature,
+            "num_predict": self.settings.ollama_num_predict,
+        }
+
     async def chat(self, messages: list[dict], model: Optional[str] = None) -> str:
         """Ollama 비스트리밍 대화 완성."""
         response = await self.async_client.chat(
             model=model or self.default_model,
             messages=messages,
+            options=self._ollama_options(),
         )
         return getattr(response.message, "content", "") or ""
 
@@ -156,6 +164,7 @@ class OllamaProvider(LLMProvider):
             model=model or self.default_model,
             messages=messages,
             stream=True,
+            options=self._ollama_options(),
         )
         async for part in stream:
             content = getattr(part.message, "content", "") or getattr(part, "content", "") or ""
@@ -167,6 +176,7 @@ class OllamaProvider(LLMProvider):
         response = self.sync_client.chat(
             model=model or self.default_model,
             messages=messages,
+            options=self._ollama_options(),
         )
         msg = getattr(response, "message", None) or response.get("message", {})
         return getattr(msg, "content", None) or (msg.get("content") if isinstance(msg, dict) else "") or ""
